@@ -266,7 +266,7 @@
         const user = document.getElementById('n_user').value.trim();
         if(!user) return;
         
-        if(myPresenceRef) myPresenceRef.remove(); // Rimuovi il vecchio nome se lo cambi
+        if(myPresenceRef) myPresenceRef.remove(); 
         
         myPresenceRef = db.ref('lobby/users/' + user);
         myPresenceRef.set({ t: Date.now() });
@@ -276,7 +276,7 @@
         db.ref('lobby/pms/' + user).on('child_added', (snap) => {
             const data = snap.val();
             if(data) appendChat(data.from, data.msg, "chat-pm");
-            snap.ref.remove(); // Elimina dopo aver letto
+            snap.ref.remove(); // Elimina istantaneamente dopo aver letto
         });
     }
 
@@ -308,8 +308,10 @@
                 btn.onclick = () => {
                     const msg = prompt(`Invia un messaggio privato a ${u}:`);
                     if(msg && msg.trim()) {
-                        db.ref('lobby/pms/' + u).push({ from: myName, msg: msg });
+                        const pmRef = db.ref('lobby/pms/' + u).push({ from: myName, msg: msg });
                         appendChat(`A ${u}`, msg, "chat-pm");
+                        // Fallback: se l'altro utente non legge, distruggi il PM dopo 10 secondi
+                        setTimeout(() => pmRef.remove(), 10000); 
                     }
                 };
                 userDiv.appendChild(btn);
@@ -319,10 +321,11 @@
     });
 
     // Ascolta la chat globale
-    db.ref('lobby/global_chat').limitToLast(5).on('child_added', (snap) => {
+    db.ref('lobby/global_chat').on('child_added', (snap) => {
         const data = snap.val();
         const myName = document.getElementById('n_user').value.trim();
-        if(data && data.from !== myName && !conn) { // Mostra solo se NON sei in una stanza P2P
+        // Mostra solo se NON sei in P2P e se il messaggio è fresco (es. < 10 secondi fa)
+        if(data && data.from !== myName && !conn && (Date.now() - data.t < 10000)) { 
             appendChat("🌎 " + data.from, data.msg);
         }
     });
@@ -591,13 +594,18 @@
         if(!msg) return;
         
         if(conn && conn.open) {
-            // Se in stanza P2P
+            // Se in stanza P2P (NON tocca Firebase)
             appendChat("Tu", msg, "chat-p2p");
             conn.send({type: 'CHAT', msg: msg});
         } else {
-            // Se in Lobby Globale
+            // Se in Lobby Globale (Autodistruzione Firebase)
             appendChat("🌎 Tu", msg);
-            db.ref('lobby/global_chat').push({ from: myName, msg: msg, t: Date.now() });
+            const msgRef = db.ref('lobby/global_chat').push({ from: myName, msg: msg, t: Date.now() });
+            
+            // IL SEGRETO È QUI: Cancella il messaggio dal database dopo 5 secondi
+            setTimeout(() => {
+                msgRef.remove();
+            }, 5000);
         }
         el.value = '';
     }
