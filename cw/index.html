@@ -598,18 +598,21 @@
             appendChat("Tu", msg, "chat-p2p");
             conn.send({type: 'CHAT', msg: msg});
         } else {
-            // Se in Lobby Globale (Autodistruzione Firebase)
+            // Se in Lobby Globale
             appendChat("🌎 Tu", msg);
             const msgRef = db.ref('lobby/global_chat').push({ from: myName, msg: msg, t: Date.now() });
             
-            // IL SEGRETO È QUI: Cancella il messaggio dal database dopo 5 secondi
+            // SICUREZZA 1: Se l'utente chiude la pagina o perde la linea prima dei 5 secondi, Firebase cancella da solo
+            msgRef.onDisconnect().remove();
+            
+            // SICUREZZA 2: Se l'utente resta sulla pagina, si cancella normalmente dopo 5 secondi
             setTimeout(() => {
                 msgRef.remove();
+                msgRef.onDisconnect().cancel(); // Pulisce la memoria del server
             }, 5000);
         }
         el.value = '';
     }
-    document.getElementById('chat-input').addEventListener('keypress', e => { if(e.key === 'Enter') sendChat(); });
     
     function appendChat(s, m, cls="") { 
         const b = document.getElementById('chat-box');
