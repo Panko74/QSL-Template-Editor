@@ -113,9 +113,16 @@
 
         <div id="area-manuale" class="active">
             <div class="grid-4">
-                <label>Tasto Punto:</label><input type="text" id="k_dot" value="z" maxlength="1" style="text-align: center;" onchange="saveConfig()">
-                <label>Tasto Linea:</label><input type="text" id="k_dash" value="x" maxlength="1" style="text-align: center;" onchange="saveConfig()">
-            </div>
+    <label>Tasto Punto:</label>
+    <input type="text" id="k_dot" value="KeyZ" placeholder="Premi un tasto..." 
+           readonly style="text-align: center; cursor: pointer; background: #222;" 
+           onkeydown="this.value=event.code; saveConfig(); event.preventDefault();">
+    
+    <label>Tasto Linea:</label>
+    <input type="text" id="k_dash" value="KeyX" placeholder="Premi un tasto..." 
+           readonly style="text-align: center; cursor: pointer; background: #222;" 
+           onkeydown="this.value=event.code; saveConfig(); event.preventDefault();">
+</div>
             <div id="mouse-pad">TOUCH PADDLE (Metà Sx = Punto, Metà Dx = Linea)</div>
         </div>
     </details>
@@ -524,38 +531,49 @@
         }
     }, {passive: false});
 
-    document.addEventListener('keydown', (e) => {
-        if(document.getElementById('v_input_source').value !== 'manual' || document.activeElement.tagName === 'INPUT') return;
-        if(e.repeat) return; 
-        const kDot = document.getElementById('k_dot').value.toLowerCase();
-        const kDash = document.getElementById('k_dash').value.toLowerCase();
-        const mode = document.getElementById('c_mode').value;
-        const key = e.key.toLowerCase();
-        
-        if(key === kDot || key === kDash) {
-            initAudio();
-            if (mode === 'Iambic') {
-                if (key === kDot) dotPressed = true;
-                if (key === kDash) dashPressed = true;
-                if (!keyerActive) runIambicKeyer();
-            } else { playTone(getFreq(key === kDot ? 'dot' : 'dash'), true); }
+   document.addEventListener('keydown', (e) => {
+    // Esci se non siamo in modalità manuale o se stiamo scrivendo in un campo di testo (tranne quelli dei tasti)
+    if(document.getElementById('v_input_source').value !== 'manual') return;
+    if(document.activeElement.tagName === 'INPUT' && !['k_dot', 'k_dash'].includes(document.activeElement.id)) return;
+    
+    // Evita la ripetizione automatica del sistema operativo
+    if(e.repeat) return; 
+
+    const kDotCode = document.getElementById('k_dot').value;
+    const kDashCode = document.getElementById('k_dash').value;
+    const mode = document.getElementById('c_mode').value;
+    
+    // Confronto basato sul "code" (es: "ControlLeft", "Space", "AltRight")
+    if(e.code === kDotCode || e.code === kDashCode) {
+        e.preventDefault(); // Impedisce azioni di sistema (es. scroll con spazio o apertura menu con Alt)
+        initAudio();
+        if (mode === 'Iambic') {
+            if (e.code === kDotCode) dotPressed = true;
+            if (e.code === kDashCode) dashPressed = true;
+            if (!keyerActive) runIambicKeyer();
+        } else { 
+            playTone(getFreq(e.code === kDotCode ? 'dot' : 'dash'), true); 
         }
-    });
+    }
+});
     
     document.addEventListener('keyup', (e) => {
-        if(document.getElementById('v_input_source').value !== 'manual') return;
-        const kDot = document.getElementById('k_dot').value.toLowerCase();
-        const kDash = document.getElementById('k_dash').value.toLowerCase();
-        const mode = document.getElementById('c_mode').value;
-        const key = e.key.toLowerCase();
-        
-        if(key === kDot || key === kDash) {
-            if (mode === 'Iambic') {
-                if (key === kDot) dotPressed = false;
-                if (key === kDash) dashPressed = false;
-            } else { stopTone(true); }
+    if(document.getElementById('v_input_source').value !== 'manual') return;
+    
+    const kDotCode = document.getElementById('k_dot').value;
+    const kDashCode = document.getElementById('k_dash').value;
+    const mode = document.getElementById('c_mode').value;
+    
+    if(e.code === kDotCode || e.code === kDashCode) {
+        e.preventDefault();
+        if (mode === 'Iambic') {
+            if (e.code === kDotCode) dotPressed = false;
+            if (e.code === kDashCode) dashPressed = false;
+        } else { 
+            stopTone(true); 
         }
-    });
+    }
+});
 
     // =======================================================
     // 4. RETE P2P WEBRTC (PeerJS) CON RELIABLE DATA
