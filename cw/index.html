@@ -775,11 +775,10 @@
     // =======================================================
     // 6. SERIALE ARDUINO (Chrome/Edge Desktop)
     // =======================================================
-        async function connectSerial() {
+        
+async function connectSerial() {
         let serialAPI = navigator.serial;
         
-        // Se la seriale nativa non c'è (come sui cellulari Android standard), 
-        // carichiamo dinamicamente il Polyfill che sfrutta il WebUSB!
         if (!serialAPI) {
             try {
                 const module = await import('https://unpkg.com/web-serial-polyfill');
@@ -789,13 +788,22 @@
             }
         }
 
-        // Se anche dopo il trucco non c'è supporto (es. sei su un iPhone)
-        if (!serialAPI) return alert("Browser o Sistema non supportato per USB (Usa Chrome su Android o PC).");
+        if (!serialAPI) return alert("Browser o Sistema non supportato per USB.");
 
         try {
-            // Usiamo serialAPI invece di navigator.serial
-            port = await serialAPI.requestPort();
+            // Selezionando requestPort() vuoto, Chrome mostrerà TUTTI i dispositivi seriali/CDC che riesce a vedere.
+            port = await serialAPI.requestPort({
+                filters: [
+                    { usbVendorId: 0x2341 }, // Arduino Originale (Leonardo/Micro)
+                    { usbVendorId: 0x1B4F }, // SparkFun (Cloni Pro Micro)
+                    { usbVendorId: 0x239A }, // Adafruit (ItsyBitsy 32u4)
+                    { usbVendorId: 0x1A86 }  // In caso di cloni anomali
+                ]
+            });
+            
+            // Il 32U4 a volte richiede che il DTR sia attivato per avviare la comunicazione nativa
             await port.open({ baudRate: 115200 });
+            await port.setSignals({ dataTerminalReady: true, requestToSend: true });
             
             const encoder = new TextEncoderStream();
             encoder.readable.pipeTo(port.writable);
@@ -808,10 +816,9 @@
             document.getElementById('btn-serial').style.backgroundColor = "#27ae60";
         } catch (e) { 
             console.error(e); 
-            alert("Nessuna porta selezionata o dispositivo non riconosciuto.");
+            alert("Nessuna porta selezionata. Assicurati di aver chiuso altre app seriali!");
         }
     }
-
 
     async function sendParamsToArduino() {
         if (!serialWriter) return;
