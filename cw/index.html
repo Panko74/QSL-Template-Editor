@@ -691,7 +691,13 @@
     
     b.scrollTop = b.scrollHeight;
 }
-    function clearChat() { document.getElementById('chat-box').innerHTML = ''; }
+    function clearChat() { 
+    const b = document.getElementById('chat-box');
+    // Rimuove tutti i nodi figli in modo efficiente e sicuro
+    while (b.firstChild) {
+        b.removeChild(b.firstChild);
+    }
+}
 
     // =======================================================
     // 5. GENERATORE AUTOMATICO E SISTEMA NOTIFICHE CW
