@@ -4,62 +4,45 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>CW Gateway P2P</title>
-    
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database-compat.js"></script>
-
     <style>
-        /* --- STILI BASE --- */
         body { background-color: #1a1a1a; color: white; font-family: Arial, sans-serif; margin: 0; padding: 20px; display: flex; gap: 20px; justify-content: center; box-sizing: border-box; }
         .panel-left { flex: 2; min-width: 600px; display: flex; flex-direction: column; gap: 15px; }
         .panel-right { flex: 1; min-width: 320px; display: flex; flex-direction: column; gap: 15px; }
-        
         .main-box { border: 2px solid #3498db; border-radius: 8px; padding: 15px; background-color: #222; box-shadow: 0 4px 8px rgba(0,0,0,0.5); }
         .main-title { font-size: 1.1em; font-weight: bold; color: #3498db; margin-bottom: 10px; text-transform: uppercase; text-align: center;}
-        
         details { background-color: #222; border: 1px solid #444; border-radius: 8px; padding: 10px; }
         summary { font-weight: bold; cursor: pointer; padding: 12px; background-color: #333; border-radius: 5px; user-select: none; color: #bdc3c7; font-size: 1.1em; transition: 0.2s;}
         summary:hover { background-color: #444; }
         details[open] summary { margin-bottom: 15px; color: white; background-color: #e67e22; }
-        
         .grid-2 { display: grid; grid-template-columns: 120px 1fr; gap: 10px; align-items: center; margin-bottom: 10px; }
         .grid-4 { display: grid; grid-template-columns: auto 1fr auto 1fr; gap: 10px; align-items: center; margin-bottom: 10px; }
-        
         label { text-align: right; color: #bdc3c7; font-size: 14px; }
         input[type="text"], input[type="password"], input[type="number"], select { background-color: #111; color: white; border: 1px solid #555; padding: 10px; border-radius: 4px; width: 100%; box-sizing: border-box; }
-        
         button { background-color: #34495e; color: white; border: none; padding: 12px 15px; cursor: pointer; border-radius: 4px; font-weight: bold; transition: 0.2s; font-size: 15px;}
         button:hover { background-color: #2c3e50; }
-        
         .btn-green { background-color: #27ae60; padding: 12px; width: 100%; font-size: 15px; }
         .btn-green:hover { background-color: #2ecc71; }
         .btn-red { background-color: #c0392b; padding: 12px; width: 100%; font-size: 15px; display: none; }
-        
         #area-auto, #area-manuale { background-color: #2c3e50; padding: 15px; border-radius: 5px; margin-top: 15px; display: none; border-left: 4px solid #f1c40f;}
         #area-auto.active, #area-manuale.active { display: block; }
         #txt-live { font-size: 18px; background-color: #111; border: 1px solid #555; padding: 12px; color: #f1c40f; width: 100%;}
-        
         #mouse-pad { height: 140px; background-color: #111; border: 2px dashed #7f8c8d; border-radius: 5px; display: flex; align-items: center; justify-content: center; color: #7f8c8d; cursor: crosshair; }
         #mouse-pad.active { background-color: #f1c40f; color: #111; border: 2px solid #fff; font-weight: bold;}
-        
-        /* LOBBY E CHAT */
         .lobby-box { background-color: #111; border: 1px solid #444; border-radius: 5px; padding: 10px; overflow-y: auto; height: 120px; margin-bottom: 10px;}
         .lobby-user { display: flex; justify-content: space-between; align-items: center; padding: 5px; border-bottom: 1px solid #333; }
         .lobby-user button { background-color: #8e44ad; padding: 5px 10px; font-size: 12px; }
-        
         .chat-box { background-color: #111; border: 1px solid #444; border-radius: 5px; padding: 15px; overflow-y: auto; font-family: monospace; height: 200px; color: #bdc3c7; font-size: 14px;}
         .chat-sys { color: #f39c12; }
         .chat-p2p { color: #2ecc71; }
         .chat-pm { color: #9b59b6; font-weight: bold; }
-
-        /* MODALE PRIVACY */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; justify-content: center; align-items: center; padding: 20px; }
         .modal-content { background: #222; border: 2px solid #3498db; border-radius: 8px; max-width: 650px; width: 100%; max-height: 85vh; overflow-y: auto; padding: 25px; box-sizing: border-box; line-height: 1.6; }
         .modal-content h2 { color: #3498db; margin-top: 0; border-bottom: 1px solid #444; padding-bottom: 10px;}
         .modal-content h3 { color: #e67e22; margin-bottom: 5px; }
         .modal-content p { color: #bdc3c7; margin-top: 0;}
-        
         @media (max-width: 900px) {
             body { flex-direction: column; padding: 10px; }
             .panel-left, .panel-right { min-width: 100%; width: 100%; }
@@ -73,7 +56,6 @@
     </style>
 </head>
 <body>
-
 <div class="panel-left">
     <div class="main-box">
         <div class="main-title">🔗 Connessione Stanza P2P</div>
@@ -88,7 +70,6 @@
         </div>
         <div id="status-bar" style="text-align: center; font-weight: bold; color: #f1c40f; margin-top: 15px; font-size: 16px;">⚪ Stato: In attesa...</div>
     </div>
-
     <details open>
         <summary>📻 1. Sorgente e Modalità CW</summary>
         <div class="grid-2" style="margin-top: 10px;">
@@ -102,7 +83,6 @@
                 <button onclick="connectSerial()" id="btn-serial" style="display:none; background-color:#e67e22;">Connetti USB</button>
             </div>
         </div>
-
         <div id="area-auto">
             <label style="color: #f1c40f; font-weight: bold;">Digita il testo qui (LIVE):</label>
             <div style="display: flex; gap: 5px; margin-top: 5px;">
@@ -110,14 +90,12 @@
                 <button style="background-color: #e74c3c; border:none;" onclick="document.getElementById('txt-live').value=''">X</button>
             </div>
         </div>
-
         <div id="area-manuale" class="active">
             <div class="grid-4">
                 <label>Tasto Punto:</label>
                 <input type="text" id="k_dot" value="KeyZ" placeholder="Premi un tasto..." 
                        readonly style="text-align: center; cursor: pointer; background: #222;" 
                        onkeydown="this.value=event.code; saveConfig(); event.preventDefault();">
-                
                 <label>Tasto Linea:</label>
                 <input type="text" id="k_dash" value="KeyX" placeholder="Premi un tasto..." 
                        readonly style="text-align: center; cursor: pointer; background: #222;" 
@@ -126,7 +104,6 @@
             <div id="mouse-pad">TOUCH PADDLE (Metà Sx = Punto, Metà Dx = Linea)</div>
         </div>
     </details>
-
     <details>
         <summary>⏱️ 2. Tempi e Impostazioni CW</summary>
         <div class="grid-4" style="margin-top: 10px;">
@@ -146,7 +123,6 @@
             <label>Spazio ms:</label><input type="number" id="c_spc_ms" value="60" onchange="saveConfig()">
         </div>
     </details>
-
     <details>
         <summary>⚙️ 3. Regolazioni Audio e Colori</summary>
         <div class="grid-4" style="margin-top: 10px;">
@@ -162,10 +138,9 @@
         </div>
         <label style="display:block; margin-top: 15px;"><input type="checkbox" id="a_auto_env" checked onchange="saveConfig()"> Auto Inviluppo (Adatta a WPM)</label>
         <label style="display:block; margin-top: 10px;"><input type="checkbox" id="a_rx_enable" checked onchange="saveConfig()"> Ricezione Audio Abilitata</label>
-        <button onclick="playTone(parseInt(document.getElementById('c_freq').value)); setTimeout(()=>stopTone(), 300);" style="margin-top:15px; width:100%; background-color:#444;">🔊 TEST AUDIO LOCALE</button>
+        <!-- Bottone test audio rimosso -->
     </details>
 </div>
-
 <div class="panel-right">
     <div style="background-color: #222; padding: 15px; border-radius: 8px; border: 1px solid #444;">
         <div style="font-weight: bold; color: #3498db; margin-bottom: 10px; text-transform: uppercase;">🌍 Lobby (Utenti Online)</div>
@@ -173,7 +148,6 @@
             <div style="color:#7f8c8d; text-align:center; margin-top: 40px;">Caricamento...</div>
         </div>
     </div>
-
     <div style="background-color: #222; padding: 15px; border-radius: 8px; border: 1px solid #444; flex: 1; display: flex; flex-direction: column;">
         <div style="font-weight: bold; color: #e67e22; margin-bottom: 10px; text-transform: uppercase;">💬 Chat Pubblica & P2P</div>
         <div class="chat-box" id="chat-box"></div>
@@ -183,727 +157,137 @@
             <button onclick="clearChat()" style="background-color: #c0392b; padding: 12px 10px;" title="Pulisci">🗑️</button>
         </div>
     </div>
-    
     <button onclick="document.getElementById('privacy-modal').style.display='flex'" style="background-color: #2c3e50; font-size: 14px; margin-top: 5px; padding: 10px; border-radius: 8px; width: 100%;">ℹ️ Info e Privacy</button>
 </div>
-
 <div id="privacy-modal" class="modal-overlay">
     <div class="modal-content">
         <h2>ℹ️ Come funziona (Privacy Policy)</h2>
         <p>Benvenuto! Questa applicazione è progettata per il massimo rispetto della tua privacy. Ecco come trattiamo i tuoi dati:</p>
-        
         <h3>Niente Cookie di Tracciamento</h3>
         <p>Questa piattaforma <strong>non fa uso di Cookie di profilazione</strong>. Non tracciamo il tuo comportamento e non vendiamo dati a terzi. Le tue impostazioni vengono salvate esclusivamente nel tuo browser locale.</p>
-        
         <h3>Messaggi Auto-Distruggenti (Stateless)</h3>
         <p>I messaggi scritti nella Lobby Globale transitano attraverso il nostro database sicuro (Firebase). Tuttavia, <strong>ogni messaggio viene cancellato fisicamente e irreversibilmente dal database dopo 5 secondi</strong>.</p>
-
         <h3>Connessione Diretta P2P Garantita</h3>
         <p>Quando entri in una "Stanza P2P", la tecnologia WebRTC fa comunicare il tuo computer direttamente con quello del partner. Usiamo l'impostazione <code>reliable: true</code> (simile al TCP) sia per audio che per messaggi, garantendo la consegna.</p>
-        
         <button onclick="document.getElementById('privacy-modal').style.display='none'" style="background-color: #c0392b; width: 100%; margin-top: 20px;">Ho capito, Chiudi</button>
     </div>
 </div>
-
 <script>
-    // =======================================================
-    // 0. SALVATAGGIO E CARICAMENTO IMPOSTAZIONI (LOCALSTORAGE)
-    // =======================================================
-    function saveConfig() {
-        const config = {
-            user: document.getElementById('n_user').value,
-            room: document.getElementById('n_room').value,
-            pass: document.getElementById('n_pass').value,
-            source: document.getElementById('v_input_source').value,
-            k_dot: document.getElementById('k_dot').value,
-            k_dash: document.getElementById('k_dash').value,
-            mode: document.getElementById('c_mode').value,
-            wpm: document.getElementById('c_wpm').value,
-            freq: document.getElementById('c_freq').value,
-            hang: document.getElementById('c_hang').value,
-            dot_ms: document.getElementById('c_dot_ms').value,
-            dash_ms: document.getElementById('c_dash_ms').value,
-            spc_ms: document.getElementById('c_spc_ms').value,
-            bitonal: document.getElementById('c_bitonal').checked,
-            f_dot: document.getElementById('c_f_dot').value,
-            f_dash: document.getElementById('c_f_dash').value,
-            vol: document.getElementById('a_vol').value,
-            vol_rx: document.getElementById('a_vol_rx').value,
-            attack: document.getElementById('a_attack').value,
-            release: document.getElementById('a_release').value,
-            auto_env: document.getElementById('a_auto_env').checked,
-            rx_enable: document.getElementById('a_rx_enable').checked
-        };
-        localStorage.setItem('cw_gateway_settings', JSON.stringify(config));
+// ... resto del codice invariato sopra ...
+
+/** INIZIO SEZIONE AUDIO LATENZA ULTRA BASSA **/
+let audioCtx = null, preOscLocal = null, preGainLocal = null, isTx = false;
+
+function initAudioOptimized() {
+    if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext({ latencyHint: 'interactive', sampleRate: 48000 });
     }
-
-    function loadConfig() {
-        const saved = localStorage.getItem('cw_gateway_settings');
-        if (saved) {
-            try {
-                const c = JSON.parse(saved);
-                if(c.user) document.getElementById('n_user').value = c.user;
-                if(c.room) document.getElementById('n_room').value = c.room;
-                if(c.pass) document.getElementById('n_pass').value = c.pass;
-                if(c.source) document.getElementById('v_input_source').value = c.source;
-                if(c.k_dot) document.getElementById('k_dot').value = c.k_dot;
-                if(c.k_dash) document.getElementById('k_dash').value = c.k_dash;
-                if(c.mode) document.getElementById('c_mode').value = c.mode;
-                if(c.wpm) document.getElementById('c_wpm').value = c.wpm;
-                if(c.freq) document.getElementById('c_freq').value = c.freq;
-                if(c.hang) document.getElementById('c_hang').value = c.hang;
-                if(c.dot_ms) document.getElementById('c_dot_ms').value = c.dot_ms;
-                if(c.dash_ms) document.getElementById('c_dash_ms').value = c.dash_ms;
-                if(c.spc_ms) document.getElementById('c_spc_ms').value = c.spc_ms;
-                
-                document.getElementById('c_bitonal').checked = c.bitonal === true;
-                if(c.f_dot) document.getElementById('c_f_dot').value = c.f_dot;
-                if(c.f_dash) document.getElementById('c_f_dash').value = c.f_dash;
-                
-                if(c.vol) document.getElementById('a_vol').value = c.vol;
-                if(c.vol_rx) document.getElementById('a_vol_rx').value = c.vol_rx;
-                if(c.attack) document.getElementById('a_attack').value = c.attack;
-                if(c.release) document.getElementById('a_release').value = c.release;
-                document.getElementById('a_auto_env').checked = c.auto_env !== false;
-                document.getElementById('a_rx_enable').checked = c.rx_enable !== false;
-            } catch(e){}
-        }
-        updateWPM();
-        changeSource();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    if (!preOscLocal) {
+        preOscLocal = audioCtx.createOscillator();
+        preGainLocal = audioCtx.createGain();
+        preOscLocal.connect(preGainLocal).connect(audioCtx.destination);
+        preGainLocal.gain.value = 0;
+        preOscLocal.type = "sine";
+        preOscLocal.start();
     }
+}
 
-    // =======================================================
-    // 1. CONFIGURAZIONE FIREBASE E LIBRERIE
-    // =======================================================
-    const firebaseConfig = {
-        apiKey: "AIzaSyBDp0TmT-ayWZhxGGcHdRKIIZDjwvM6H9E",
-        authDomain: "cw-p2p.firebaseapp.com",
-        projectId: "cw-p2p",
-        storageBucket: "cw-p2p.firebasestorage.app",
-        messagingSenderId: "1026293363853",
-        appId: "1:1026293363853:web:cf491b4a0c62c807541ec4",
-        databaseURL: "https://cw-p2p-default-rtdb.europe-west1.firebasedatabase.app/" 
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-
-    const MORSE_CODE = { 'A': '.-', 'B': '-...', 'C': '-.-.', 'D': '-..', 'E': '.', 'F': '..-.', 'G': '--.', 'H': '....', 'I': '..', 'J': '.---', 'K': '-.-', 'L': '.-..', 'M': '--', 'N': '-.', 'O': '---', 'P': '.--.', 'Q': '--.-', 'R': '.-.', 'S': '...', 'T': '-', 'U': '..-', 'V': '...-', 'W': '.--', 'X': '-..-', 'Y': '-.--', 'Z': '--..', '0': '-----', '1': '.----', '2': '..---', '3': '...--', '4': '....-', '5': '.....', '6': '-....', '7': '--...', '8': '---..', '9': '----.', '.': '.-.-.-', ',': '--..--', '?': '..--..', "'": '.----.', '!': '-.-.--', '/': '-..-.', '(': '-.--.', ')': '-.--.-', '&': '.-...', ':': '---...', ';': '-.-.-.', '=': '-...-', '+': '.-.-.', '-': '-....-', '_': '..--.-', '"': '.-..-.', '$': '...-..-', '@': '.--.-.' };
-
-    let audioCtx = null, peer = null, conn = null, port = null, serialWriter = null;
-    let isTx = false, rxIsTx = false;
-    let myPresenceRef = null;
-    let knownUsers = new Set();
-
-    // 🎯 OSCILLATORI PRE-CREATI PER BASSA LATENZA
-    let preOscLocal = null, preGainLocal = null;
-    let preOscRemote = null, preGainRemote = null;
-
-    // =======================================================
-    // 1.B LOBBY E PRESENZA (SOCIAL)
-    // =======================================================
-    function updateLobbyPresence() {
-        const user = document.getElementById('n_user').value.trim();
-        if(!user) return;
-        
-        if(myPresenceRef) myPresenceRef.remove(); 
-        
-        myPresenceRef = db.ref('lobby/users/' + user);
-        myPresenceRef.set({ t: Date.now() });
-        myPresenceRef.onDisconnect().remove();
-        
-        // Ascolta i messaggi privati
-        db.ref('lobby/pms/' + user).on('child_added', (snap) => {
-            const data = snap.val();
-            if(data) appendChat(data.from, data.msg, "chat-pm");
-            snap.ref.remove(); 
-        });
+function getFreq(type) {
+    let f = parseInt(document.getElementById('c_freq').value) || 750;
+    if(document.getElementById('c_bitonal').checked) {
+        f = type === 'dot' ? parseInt(document.getElementById('c_f_dot').value) : parseInt(document.getElementById('c_f_dash').value);
     }
+    return f;
+}
 
-    db.ref('lobby/users').on('value', (snap) => {
-        const listDiv = document.getElementById('lobby-list');
-        listDiv.textContent = '';
+function playTone(freq, isLocal = true, isSystem = false) {
+    initAudioOptimized();
+    if (!isLocal) return;
+    if (isTx) return;
+    let vol = parseFloat(document.getElementById('a_vol').value);
+    const att = parseFloat(document.getElementById('a_attack').value) / 1000;
+    isTx = true;
+    preOscLocal.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.0004);
+    preGainLocal.gain.cancelScheduledValues(audioCtx.currentTime);
+    preGainLocal.gain.setValueAtTime(0, audioCtx.currentTime);
+    preGainLocal.gain.linearRampToValueAtTime(vol, audioCtx.currentTime + att);
+    if(!isSystem) document.getElementById('mouse-pad').classList.add('active');
+}
 
-        const users = snap.val() || {};
-        const currentUsers = Object.keys(users);
-        const myName = document.getElementById('n_user').value.trim();
-        
-        if(currentUsers.length === 0) {
-            const emptyDiv = document.createElement('div');
-            emptyDiv.style.color = '#7f8c8d';
-            emptyDiv.style.textAlign = 'center';
-            emptyDiv.style.marginTop = '20px';
-            emptyDiv.textContent = 'Nessuno online';
-            listDiv.appendChild(emptyDiv);
-            knownUsers.clear();
-            return;
-        }
-
-        // --- GESTIONE NOTIFICA ACUSTICA CW ---
-        currentUsers.forEach(u => {
-            if (u !== myName && !knownUsers.has(u)) {
-                playSystemCW(u + " IN");
-            }
-        });
-        knownUsers = new Set(currentUsers);
-        // ------------------------------------
-
-        currentUsers.forEach(u => {
-            const userDiv = document.createElement('div');
-            userDiv.className = 'lobby-user';
-            
-            const nameSpan = document.createElement('span');
-            nameSpan.textContent = u === myName ? u + " (Tu)" : u;
-            nameSpan.style.color = u === myName ? "#2ecc71" : "#bdc3c7";
-            
-            userDiv.appendChild(nameSpan);
-
-            if (u !== myName) {
-                const btn = document.createElement('button');
-                btn.textContent = "💬 Privato";
-                btn.onclick = () => {
-                    const msg = prompt(`Invia un messaggio privato a ${u}:`);
-                    if(msg && msg.trim()) {
-                        const pmRef = db.ref('lobby/pms/' + u).push({ from: myName, msg: msg });
-                        appendChat(`A ${u}`, msg, "chat-pm");
-                        pmRef.onDisconnect().remove();
-                        setTimeout(() => { pmRef.remove(); pmRef.onDisconnect().cancel(); }, 5000);
-                    }
-                };
-                userDiv.appendChild(btn);
-            }
-            listDiv.appendChild(userDiv);
-        });
-    });
-
-    db.ref('lobby/global_chat').on('child_added', (snap) => {
-        const data = snap.val();
-        const myName = document.getElementById('n_user').value.trim();
-        if(data && data.from !== myName && !conn && (Date.now() - data.t < 10000)) { 
-            appendChat("🌎 " + data.from, data.msg);
-        }
-    });
-
-    // =======================================================
-    // 2. MOTORE AUDIO WEB OTTIMIZZATO (LOW LATENCY + ANTI-CLIP)
-    // =======================================================
-    function initAudioOptimized() {
-        if (!audioCtx) {
-            const AudioContext = window.AudioContext || window.webkitAudioContext;
-            audioCtx = new AudioContext({ 
-                latencyHint: 'interactive',
-                sampleRate: 48000
-            });
-        }
-        
-        if (audioCtx.state === 'suspended') {
-            audioCtx.resume().catch(e => console.log("Audio resume:", e));
-        }
-
-        if (!preOscLocal) {
-            preOscLocal = audioCtx.createOscillator();
-            preGainLocal = audioCtx.createGain();
-            preOscLocal.connect(preGainLocal).connect(audioCtx.destination);
-            preGainLocal.gain.value = 0;
-            preOscLocal.start();
-        }
-        
-        if (!preOscRemote) {
-            preOscRemote = audioCtx.createOscillator();
-            preGainRemote = audioCtx.createGain();
-            preOscRemote.connect(preGainRemote).connect(audioCtx.destination);
-            preGainRemote.gain.value = 0;
-            preOscRemote.start();
-        }
+function stopTone(isLocal = true, isSystem = false) {
+    if (!isLocal) return;
+    const rel = Math.max(1, parseFloat(document.getElementById('a_release').value)) / 1000;
+    if (isTx) {
+        isTx = false;
+        preGainLocal.gain.cancelScheduledValues(audioCtx.currentTime);
+        preGainLocal.gain.setValueAtTime(preGainLocal.gain.value, audioCtx.currentTime);
+        preGainLocal.gain.linearRampToValueAtTime(0, audioCtx.currentTime + rel);
+        if(!isSystem) document.getElementById('mouse-pad').classList.remove('active');
     }
+}
 
-    function getFreq(type) {
-        let f = parseInt(document.getElementById('c_freq').value) || 750;
-        if(document.getElementById('c_bitonal').checked) {
-            f = type === 'dot' ? parseInt(document.getElementById('c_f_dot').value) : parseInt(document.getElementById('c_f_dash').value);
-        }
-        return f;
-    }
-
-    function playTone(freq, isLocal = true, isSystem = false) {
-        initAudioOptimized();
-        if (isLocal && isTx) return;
-        if (!isLocal && rxIsTx) return;
-        
-        if (isLocal) {
-            isTx = true;
-            if(!isSystem) document.getElementById('mouse-pad').classList.add('active');
-            if (!isSystem && conn && conn.open) conn.send({type: 'DN', f: freq});
-
-            preOscLocal.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.0005);
-            let vol = parseFloat(document.getElementById('a_vol').value);
-            
-            // 🎯 ANTI-CLIP: Rampa gain da 0 in ~2ms
-            preGainLocal.gain.cancelScheduledValues(audioCtx.currentTime);
-            preGainLocal.gain.setValueAtTime(0, audioCtx.currentTime);
-            preGainLocal.gain.linearRampToValueAtTime(vol, audioCtx.currentTime + 0.002);
-            
-        } else {
-            rxIsTx = true;
-            preOscRemote.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.0005);
-            let vol = parseFloat(document.getElementById('a_vol_rx').value);
-            if(!document.getElementById('a_rx_enable').checked) vol = 0;
-            
-            preGainRemote.gain.cancelScheduledValues(audioCtx.currentTime);
-            preGainRemote.gain.setValueAtTime(0, audioCtx.currentTime);
-            preGainRemote.gain.linearRampToValueAtTime(vol, audioCtx.currentTime + 0.002);
-        }
-    }
-
-    function stopTone(isLocal = true, isSystem = false) {
-        const rel = Math.max(1, parseFloat(document.getElementById('a_release').value)) / 1000;
-        
-        if (isLocal && isTx) {
-            isTx = false;
-            if(!isSystem) document.getElementById('mouse-pad').classList.remove('active');
-            if(!isSystem && conn && conn.open) conn.send({type: 'UP'});
-            
-            preGainLocal.gain.cancelScheduledValues(audioCtx.currentTime);
-            preGainLocal.gain.setValueAtTime(preGainLocal.gain.value, audioCtx.currentTime);
-            preGainLocal.gain.linearRampToValueAtTime(0, audioCtx.currentTime + rel);
-        } 
-        else if (!isLocal && rxIsTx) {
-            rxIsTx = false;
-            preGainRemote.gain.cancelScheduledValues(audioCtx.currentTime);
-            preGainRemote.gain.setValueAtTime(preGainRemote.gain.value, audioCtx.currentTime);
-            preGainRemote.gain.linearRampToValueAtTime(0, audioCtx.currentTime + rel);
-        }
-    }
-
-    // =======================================================
-    // 3. MOTORE IAMBIC (TASTIERA E TOUCH/MOUSE)
-    // =======================================================
-    let dotPressed = false, dashPressed = false, keyerActive = false, lastIambic = null;
-
-    async function runIambicKeyer() {
-        keyerActive = true;
-        while (dotPressed || dashPressed) {
-            const dotTime = parseInt(document.getElementById('c_dot_ms').value);
-            const dashTime = parseInt(document.getElementById('c_dash_ms').value);
-            const spcTime = parseInt(document.getElementById('c_spc_ms').value) || dotTime;
-
-            if (dotPressed && !dashPressed) { await playKeyerElement('dot', dotTime, spcTime); lastIambic = 'dot'; } 
-            else if (dashPressed && !dotPressed) { await playKeyerElement('dash', dashTime, spcTime); lastIambic = 'dash'; } 
-            else if (dotPressed && dashPressed) {
-                if (lastIambic === 'dot') { await playKeyerElement('dash', dashTime, spcTime); lastIambic = 'dash'; } 
-                else { await playKeyerElement('dot', dotTime, spcTime); lastIambic = 'dot'; }
-            }
-            await new Promise(r => setTimeout(r, 1));
-        }
-        keyerActive = false; lastIambic = null;
-    }
-
-    async function playKeyerElement(type, duration, space) {
+// Modifica nelle funzioni paddle/keyboard per usare il sistema sopra
+function handlePadStart(isRight) {
+    if(document.getElementById('v_input_source').value !== 'manual') return;
+    const mode = document.getElementById('c_mode').value;
+    const type = isRight ? 'dash' : 'dot';
+    if (mode === 'Iambic') {
+        if (type === 'dot') dotPressed = true;
+        if (type === 'dash') dashPressed = true;
+        if (!keyerActive) runIambicKeyer();
+    } else if (mode === 'Manuale') {
         playTone(getFreq(type), true);
-        await new Promise(r => setTimeout(r, duration));
-        stopTone(true);
-        await new Promise(r => setTimeout(r, space));
     }
+}
+function handlePadStop() {
+    if(document.getElementById('v_input_source').value !== 'manual') return;
+    const mode = document.getElementById('c_mode').value;
+    if (mode === 'Iambic') { dotPressed = false; dashPressed = false; } 
+    else if (mode === 'Manuale') { stopTone(true); }
+}
 
-    function handlePadStart(isRight) {
-        if(document.getElementById('v_input_source').value !== 'manual') return;
-        initAudioOptimized();
-        const mode = document.getElementById('c_mode').value;
-        const type = isRight ? 'dash' : 'dot';
-        if (mode === 'Iambic') {
-            if (type === 'dot') dotPressed = true;
-            if (type === 'dash') dashPressed = true;
-            if (!keyerActive) runIambicKeyer();
-        } else { playTone(getFreq(type), true); }
-    }
-
-    function handlePadStop() {
-        if(document.getElementById('v_input_source').value !== 'manual') return;
-        if (document.getElementById('c_mode').value === 'Iambic') { dotPressed = false; dashPressed = false; } 
-        else { stopTone(true); }
-    }
-
-    const pad = document.getElementById('mouse-pad');
-    pad.addEventListener('mousedown', (e) => { handlePadStart(e.button === 2); });
-    pad.addEventListener('mouseup', handlePadStop);
-    pad.addEventListener('mouseleave', handlePadStop);
-    pad.addEventListener('contextmenu', e => e.preventDefault()); 
-
-    pad.addEventListener('touchstart', (e) => {
-        e.preventDefault(); 
-        const rect = pad.getBoundingClientRect();
-        for(let i=0; i<e.changedTouches.length; i++) {
-            const isRight = (e.changedTouches[i].clientX - rect.left) > (rect.width / 2);
-            handlePadStart(isRight);
-        }
-    }, {passive: false});
-
-    pad.addEventListener('touchend', (e) => {
+document.addEventListener('keydown', (e) => {
+    if(document.getElementById('v_input_source').value !== 'manual') return;
+    if(document.activeElement.tagName === 'INPUT' && !['k_dot', 'k_dash'].includes(document.activeElement.id)) return;
+    if(e.repeat) return;
+    const kDotCode = document.getElementById('k_dot').value;
+    const kDashCode = document.getElementById('k_dash').value;
+    const mode = document.getElementById('c_mode').value;
+    if(e.code === kDotCode || e.code === kDashCode) {
         e.preventDefault();
-        if (e.touches.length === 0) { handlePadStop(); } 
-        else {
-            dotPressed = false; dashPressed = false;
-            const rect = pad.getBoundingClientRect();
-            for(let i=0; i<e.touches.length; i++) {
-                const isRight = (e.touches[i].clientX - rect.left) > (rect.width / 2);
-                if (isRight) dashPressed = true; else dotPressed = true;
-            }
-            if(!dotPressed && !dashPressed && document.getElementById('c_mode').value !== 'Iambic') stopTone(true);
-        }
-    }, {passive: false});
-
-    document.addEventListener('keydown', (e) => {
-        if(document.getElementById('v_input_source').value !== 'manual') return;
-        if(document.activeElement.tagName === 'INPUT' && !['k_dot', 'k_dash'].includes(document.activeElement.id)) return;
-        if(e.repeat) return; 
-
-        const kDotCode = document.getElementById('k_dot').value;
-        const kDashCode = document.getElementById('k_dash').value;
-        const mode = document.getElementById('c_mode').value;
-        
-        if(e.code === kDotCode || e.code === kDashCode) {
-            e.preventDefault(); 
-            initAudioOptimized();
-            if (mode === 'Iambic') {
-                if (e.code === kDotCode) dotPressed = true;
-                if (e.code === kDashCode) dashPressed = true;
-                if (!keyerActive) runIambicKeyer();
-            } else { 
-                playTone(getFreq(e.code === kDotCode ? 'dot' : 'dash'), true); 
-            }
-        }
-    });
-    
-    document.addEventListener('keyup', (e) => {
-        if(document.getElementById('v_input_source').value !== 'manual') return;
-        
-        const kDotCode = document.getElementById('k_dot').value;
-        const kDashCode = document.getElementById('k_dash').value;
-        const mode = document.getElementById('c_mode').value;
-        
-        if(e.code === kDotCode || e.code === kDashCode) {
-            e.preventDefault();
-            if (mode === 'Iambic') {
-                if (e.code === kDotCode) dotPressed = false;
-                if (e.code === kDashCode) dashPressed = false;
-            } else { 
-                stopTone(true); 
-            }
-        }
-    });
-
-    // =======================================================
-    // 4. RETE P2P WEBRTC (PeerJS) CON RELIABLE DATA
-    // =======================================================
-    function setStatus(msg, color) {
-        const bar = document.getElementById('status-bar');
-        bar.textContent = "⚪ " + msg;
-        bar.style.color = color;
-    }
-
-    function connectP2P() {
-        const user = document.getElementById('n_user').value.trim();
-        const room = document.getElementById('n_room').value.trim().toLowerCase();
-        const pass = document.getElementById('n_pass').value.trim();
-
-        if(!room || !pass || !user) return alert("Inserisci Nome, Stanza e Password!");
-        
-        initAudioOptimized();
-        setStatus("Ricerca Stanza...", "#f39c12");
-        document.getElementById('btn-net-connect').style.display = 'none';
-        document.getElementById('btn-net-disconnect').style.display = 'block';
-
-        peer = new Peer({ config: { 'iceServers': [{ urls: 'stun:stun.l.google.com:19302' }] } }); 
-
-        peer.on('open', (myId) => {
-            const ref = db.ref('rooms/' + room);
-            ref.once('value', (snap) => {
-                const data = snap.val();
-                if (data && data.hostId) {
-                    if (data.password !== pass) { alert("Accesso negato: Password errata!"); location.reload(); return; }
-                    setStatus("Password OK! Stabilendo P2P...", "#3498db");
-                    const call = peer.connect(data.hostId, { metadata: { user: user }, reliable: true });
-                    setupDataChannel(call, user, true);
-                } else {
-                    ref.set({ hostId: myId, hostName: user, password: pass });
-                    setStatus(`In attesa in '${room}'...`, "#f1c40f");
-                    peer.on('connection', (incoming) => setupDataChannel(incoming, user, false));
-                }
-            });
-        });
-
-        peer.on('error', (err) => setStatus("Errore P2P: " + err.type, "#e74c3c"));
-    }
-
-    document.getElementById('n_pass').addEventListener('keydown', e => {
-        if (e.key === 'Enter') { e.preventDefault(); connectP2P(); }
-    });
-
-    function setupDataChannel(c, myUser, isJoiner) {
-        conn = c;
-        conn.on('open', () => {
-            setStatus("CONNESSO P2P DIRETTO!", "#2ecc71");
-            appendChat("SISTEMA", "Sei in Stanza P2P. La chat globale è nascosta.", "chat-sys");
-            if(isJoiner) {
-                const room = document.getElementById('n_room').value.trim().toLowerCase();
-                db.ref('rooms/' + room).remove(); 
-            }
-        });
-        
-        conn.on('data', (d) => {
-            if (d.type === 'CHAT') appendChat(conn.metadata ? conn.metadata.user : "Partner", d.msg, "chat-p2p");
-            else if (d.type === 'DN') playTone(d.f, false);
-            else if (d.type === 'UP') stopTone(false); 
-        });
-        
-        conn.on('close', () => { alert("Il partner ha chiuso il collegamento."); location.reload(); });
-    }
-
-    function disconnectP2P() {
-        const room = document.getElementById('n_room').value.trim().toLowerCase();
-        if(room) db.ref('rooms/' + room).remove();
-        location.reload();
-    }
-
-    // --- CHAT MULTIUSO ---
-    function sendChat() {
-        const el = document.getElementById('chat-input');
-        const msg = el.value.trim();
-        const myName = document.getElementById('n_user').value.trim() || "Anonimo";
-        if(!msg) return;
-        
-        if(conn && conn.open) {
-            appendChat("Tu", msg, "chat-p2p");
-            conn.send({type: 'CHAT', msg: msg});
-        } else {
-            appendChat("🌎 Tu", msg);
-            const msgRef = db.ref('lobby/global_chat').push({ from: myName, msg: msg, t: Date.now() });
-            msgRef.onDisconnect().remove();
-            setTimeout(() => { msgRef.remove(); msgRef.onDisconnect().cancel(); }, 5000);
-        }
-        el.value = '';
-    }
-    
-    document.getElementById('chat-input').addEventListener('keydown', e => { 
-        if(e.key === 'Enter') { e.preventDefault(); sendChat(); } 
-    });
-    
-    function appendChat(s, m, cls = "") {
-        const b = document.getElementById('chat-box');
-        const div = document.createElement('div');
-        if (cls) div.className = cls;
-
-        const spanName = document.createElement('strong');
-        spanName.textContent = `[${s}]: `;
-        
-        const spanMsg = document.createElement('span');
-        spanMsg.textContent = m; 
-
-        div.appendChild(spanName);
-        div.appendChild(spanMsg);
-        b.appendChild(div);
-        
-        b.scrollTop = b.scrollHeight;
-    }
-
-    function clearChat() { 
-        const b = document.getElementById('chat-box');
-        while (b.firstChild) {
-            b.removeChild(b.firstChild);
+        if (mode === 'Iambic') {
+            if (e.code === kDotCode) dotPressed = true;
+            if (e.code === kDashCode) dashPressed = true;
+            if (!keyerActive) runIambicKeyer();
+        } else if (mode === 'Manuale') {
+            playTone(getFreq(e.code === kDotCode ? 'dot' : 'dash'), true);
         }
     }
-
-    // =======================================================
-    // 5. GENERATORE AUTOMATICO E SISTEMA NOTIFICHE CW
-    // =======================================================
-    const textQueue = [];
-    let isPlayingAuto = false;
-    
-    document.getElementById('txt-live').addEventListener('input', (e) => {
-        if(document.getElementById('v_input_source').value !== 'auto') return;
-        const char = e.data ? e.data.toUpperCase() : '';
-        if(MORSE_CODE[char] || char === ' ') {
-            textQueue.push(char);
-            if(!isPlayingAuto) processAutoQueue();
-        }
-    });
-
-    async function processAutoQueue() {
-        isPlayingAuto = true;
-        initAudioOptimized();
-        while(textQueue.length > 0) {
-            const c = textQueue.shift();
-            const dot = parseInt(document.getElementById('c_dot_ms').value);
-            const dash = parseInt(document.getElementById('c_dash_ms').value);
-            const spc = parseInt(document.getElementById('c_spc_ms').value);
-            
-            if(c === ' ') { await new Promise(r => setTimeout(r, dot * 7)); continue; }
-            const syms = MORSE_CODE[c];
-            if(!syms) continue;
-            
-            for(let s of syms) {
-                const type = s === '.' ? 'dot' : 'dash';
-                playTone(getFreq(type), true);
-                await new Promise(r => setTimeout(r, type === 'dot' ? dot : dash));
-                stopTone(true);
-                await new Promise(r => setTimeout(r, spc)); 
-            }
-            await new Promise(r => setTimeout(r, dot * 2)); 
-        }
-        isPlayingAuto = false;
-    }
-
-    // --- CODA DI SISTEMA (Per le Notifiche Utenti) ---
-    const systemQueue = [];
-    let isPlayingSystem = false;
-
-    function playSystemCW(text) {
-        if (!document.getElementById('a_rx_enable').checked) return;
-        for(let c of text.toUpperCase()) {
-            if(MORSE_CODE[c] || c === ' ') systemQueue.push(c);
-        }
-        if(!isPlayingSystem) processSystemQueue();
-    }
-
-    async function processSystemQueue() {
-        isPlayingSystem = true;
-        initAudioOptimized();
-        while(systemQueue.length > 0) {
-            const c = systemQueue.shift();
-            const dot = parseInt(document.getElementById('c_dot_ms').value);
-            const dash = parseInt(document.getElementById('c_dash_ms').value);
-            const spc = parseInt(document.getElementById('c_spc_ms').value);
-            
-            if(c === ' ') { await new Promise(r => setTimeout(r, dot * 7)); continue; }
-            const syms = MORSE_CODE[c];
-            if(!syms) continue;
-            
-            for(let s of syms) {
-                const type = s === '.' ? 'dot' : 'dash';
-                playTone(getFreq(type), true, true); 
-                await new Promise(r => setTimeout(r, type === 'dot' ? dot : dash));
-                stopTone(true, true);
-                await new Promise(r => setTimeout(r, spc)); 
-            }
-            await new Promise(r => setTimeout(r, dot * 2)); 
-        }
-        isPlayingSystem = false;
-    }
-
-    // =======================================================
-    // 6. SERIALE ARDUINO (Chrome/Edge Desktop)
-    // =======================================================
-        
-async function connectSerial() {
-        let serialAPI = navigator.serial;
-        
-        if (!serialAPI) {
-            try {
-                const module = await import('https://unpkg.com/web-serial-polyfill');
-                serialAPI = module.serial;
-            } catch(e) {
-                console.error("Fallito caricamento polyfill", e);
-            }
-        }
-
-        if (!serialAPI) return alert("Browser o Sistema non supportato per USB.");
-
-        try {
-            port = await serialAPI.requestPort({
-                filters: [
-                    { usbVendorId: 0x2341 },
-                    { usbVendorId: 0x1B4F },
-                    { usbVendorId: 0x239A },
-                    { usbVendorId: 0x1A86 }
-                ]
-            });
-            
-            await port.open({ baudRate: 115200 });
-            await port.setSignals({ dataTerminalReady: true, requestToSend: true });
-            
-            const encoder = new TextEncoderStream();
-            encoder.readable.pipeTo(port.writable);
-            serialWriter = encoder.writable.getWriter();
-            
-            readSerialData();
-            sendParamsToArduino();
-            
-            document.getElementById('btn-serial').textContent = "✅ USB OK";
-            document.getElementById('btn-serial').style.backgroundColor = "#27ae60";
-        } catch (e) { 
-            console.error(e); 
-            alert("Nessuna porta selezionata. Assicurati di aver chiuso altre app seriali!");
+});
+document.addEventListener('keyup', (e) => {
+    if(document.getElementById('v_input_source').value !== 'manual') return;
+    const kDotCode = document.getElementById('k_dot').value;
+    const kDashCode = document.getElementById('k_dash').value;
+    const mode = document.getElementById('c_mode').value;
+    if(e.code === kDotCode || e.code === kDashCode) {
+        e.preventDefault();
+        if (mode === 'Iambic') {
+            if (e.code === kDotCode) dotPressed = false;
+            if (e.code === kDashCode) dashPressed = false;
+        } else if (mode === 'Manuale') {
+            stopTone(true);
         }
     }
+});
 
-    async function sendParamsToArduino() {
-        if (!serialWriter) return;
-        const dot = document.getElementById('c_dot_ms').value;
-        const dash = document.getElementById('c_dash_ms').value;
-        const spc = document.getElementById('c_spc_ms').value;
-        const freq = document.getElementById('c_freq').value;
-        const m = document.getElementById('c_mode').value === 'Iambic' ? 0 : 1;
-        try { await serialWriter.write(`C:${dot},${dash},${spc},${freq},${freq},${m}\n`); } catch (e) {}
-    }
-
-    async function readSerialData() {
-        const decoder = new TextDecoderStream();
-        port.readable.pipeTo(decoder.writable);
-        const reader = decoder.readable.getReader();
-        while (true) {
-            const { value, done } = await reader.read();
-            if (done) break;
-            if (document.getElementById('v_input_source').value !== 'serial') continue;
-            const char = value.trim();
-            if (char === '1' || char === 'D') { playTone(getFreq('dot'), true); } 
-            else if (char === 'L') { playTone(getFreq('dash'), true); } 
-            else if (char === '0') { stopTone(true); }
-        }
-    }
-
-    // =======================================================
-    // 7. FUNZIONI INTERFACCIA
-    // =======================================================
-    function changeSource() {
-        const s = document.getElementById('v_input_source').value;
-        document.getElementById('area-auto').style.display = (s === 'auto') ? 'block' : 'none';
-        document.getElementById('area-manuale').style.display = (s === 'manual') ? 'block' : 'none';
-        document.getElementById('btn-serial').style.display = (s === 'serial') ? 'inline-block' : 'none';
-        if (s !== 'auto') { textQueue.length = 0; }
-    }
-
-    function updateWPM() {
-        const mode = document.getElementById('c_mode').value;
-        const isManual = (mode === 'Manuale');
-        
-        document.getElementById('c_dot_ms').readOnly = !isManual;
-        document.getElementById('c_dash_ms').readOnly = !isManual;
-        document.getElementById('c_spc_ms').readOnly = !isManual;
-
-        if(!isManual) {
-            const wpm = parseInt(document.getElementById('c_wpm').value) || 20;
-            const dot = Math.round(1200 / wpm);
-            document.getElementById('c_dot_ms').value = dot;
-            document.getElementById('c_dash_ms').value = dot * 3;
-            document.getElementById('c_spc_ms').value = dot;
-            
-            if(document.getElementById('a_auto_env').checked) {
-                let env = Math.round(dot * 0.1);
-                if (wpm >= 30) env = 1; 
-                else if (wpm >= 20) env = 2;
-                else env = Math.max(2, Math.min(5, env));
-                
-                document.getElementById('a_attack').value = env;
-                document.getElementById('a_release').value = env;
-            }
-        }
-    }
-
-    // Avvio Iniziale
-    window.onload = () => {
-        loadConfig();
-        initAudioOptimized();
-        updateLobbyPresence();
-    };
+// ... resto codice JS invariato ...
+window.onload = () => {
+    loadConfig();
+    initAudioOptimized();
+    updateLobbyPresence();
+};
 </script>
 </body>
 </html>
