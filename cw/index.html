@@ -113,16 +113,16 @@
 
         <div id="area-manuale" class="active">
             <div class="grid-4">
-    <label>Tasto Punto:</label>
-    <input type="text" id="k_dot" value="KeyZ" placeholder="Premi un tasto..." 
-           readonly style="text-align: center; cursor: pointer; background: #222;" 
-           onkeydown="this.value=event.code; saveConfig(); event.preventDefault();">
-    
-    <label>Tasto Linea:</label>
-    <input type="text" id="k_dash" value="KeyX" placeholder="Premi un tasto..." 
-           readonly style="text-align: center; cursor: pointer; background: #222;" 
-           onkeydown="this.value=event.code; saveConfig(); event.preventDefault();">
-</div>
+                <label>Tasto Punto:</label>
+                <input type="text" id="k_dot" value="KeyZ" placeholder="Premi un tasto..." 
+                       readonly style="text-align: center; cursor: pointer; background: #222;" 
+                       onkeydown="this.value=event.code; saveConfig(); event.preventDefault();">
+                
+                <label>Tasto Linea:</label>
+                <input type="text" id="k_dash" value="KeyX" placeholder="Premi un tasto..." 
+                       readonly style="text-align: center; cursor: pointer; background: #222;" 
+                       onkeydown="this.value=event.code; saveConfig(); event.preventDefault();">
+            </div>
             <div id="mouse-pad">TOUCH PADDLE (Metà Sx = Punto, Metà Dx = Linea)</div>
         </div>
     </details>
@@ -292,7 +292,7 @@
     let audioCtx = null, peer = null, conn = null, port = null, serialWriter = null;
     let isTx = false, rxIsTx = false, localOsc = null, localGain = null, rxOsc = null, rxGain = null;
     let myPresenceRef = null;
-    let knownUsers = new Set(); // Per tracciare chi era già nella lobby
+    let knownUsers = new Set();
 
     // =======================================================
     // 1.B LOBBY E PRESENZA (SOCIAL)
@@ -317,13 +317,19 @@
 
     db.ref('lobby/users').on('value', (snap) => {
         const listDiv = document.getElementById('lobby-list');
-        listDiv.innerHTML = '';
+        listDiv.textContent = ''; // Svuota il contenuto in modo sicuro per prevenire XSS
+
         const users = snap.val() || {};
         const currentUsers = Object.keys(users);
         const myName = document.getElementById('n_user').value.trim();
         
         if(currentUsers.length === 0) {
-            listDiv.innerHTML = '<div style="color:#7f8c8d; text-align:center; margin-top: 20px;">Nessuno online</div>';
+            const emptyDiv = document.createElement('div');
+            emptyDiv.style.color = '#7f8c8d';
+            emptyDiv.style.textAlign = 'center';
+            emptyDiv.style.marginTop = '20px';
+            emptyDiv.textContent = 'Nessuno online';
+            listDiv.appendChild(emptyDiv);
             knownUsers.clear();
             return;
         }
@@ -335,7 +341,7 @@
                 playSystemCW(u + " IN");
             }
         });
-        knownUsers = new Set(currentUsers); // Aggiorna la memoria di chi è dentro
+        knownUsers = new Set(currentUsers); // Aggiorna la memoria
         // ------------------------------------
 
         currentUsers.forEach(u => {
@@ -343,14 +349,14 @@
             userDiv.className = 'lobby-user';
             
             const nameSpan = document.createElement('span');
-            nameSpan.innerText = u === myName ? u + " (Tu)" : u;
+            nameSpan.textContent = u === myName ? u + " (Tu)" : u;
             nameSpan.style.color = u === myName ? "#2ecc71" : "#bdc3c7";
             
             userDiv.appendChild(nameSpan);
 
             if (u !== myName) {
                 const btn = document.createElement('button');
-                btn.innerText = "💬 Privato";
+                btn.textContent = "💬 Privato";
                 btn.onclick = () => {
                     const msg = prompt(`Invia un messaggio privato a ${u}:`);
                     if(msg && msg.trim()) {
@@ -379,7 +385,6 @@
     // =======================================================
     function initAudio() {
         if (!audioCtx) {
-            // Chiediamo al browser la latenza minima possibile (Esclusiva Web Audio)
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             audioCtx = new AudioContext({ latencyHint: 'interactive', sampleRate: 44100 });
         }
@@ -394,7 +399,6 @@
         return f;
     }
 
-    // Aggiunto parametro "isSystem" per non trasmettere i suoni di notifica sulla rete
     function playTone(freq, isLocal = true, isSystem = false) {
         initAudio();
         if (isLocal && isTx) return;
@@ -471,7 +475,6 @@
                 if (lastIambic === 'dot') { await playKeyerElement('dash', dashTime, spcTime); lastIambic = 'dash'; } 
                 else { await playKeyerElement('dot', dotTime, spcTime); lastIambic = 'dot'; }
             }
-            // OTTIMIZZAZIONE: polling a 1ms invece di 5ms per leggere prima le variazioni del paddle
             await new Promise(r => setTimeout(r, 1));
         }
         keyerActive = false; lastIambic = null;
@@ -531,56 +534,52 @@
         }
     }, {passive: false});
 
-   document.addEventListener('keydown', (e) => {
-    // Esci se non siamo in modalità manuale o se stiamo scrivendo in un campo di testo (tranne quelli dei tasti)
-    if(document.getElementById('v_input_source').value !== 'manual') return;
-    if(document.activeElement.tagName === 'INPUT' && !['k_dot', 'k_dash'].includes(document.activeElement.id)) return;
-    
-    // Evita la ripetizione automatica del sistema operativo
-    if(e.repeat) return; 
+    document.addEventListener('keydown', (e) => {
+        if(document.getElementById('v_input_source').value !== 'manual') return;
+        if(document.activeElement.tagName === 'INPUT' && !['k_dot', 'k_dash'].includes(document.activeElement.id)) return;
+        if(e.repeat) return; 
 
-    const kDotCode = document.getElementById('k_dot').value;
-    const kDashCode = document.getElementById('k_dash').value;
-    const mode = document.getElementById('c_mode').value;
-    
-    // Confronto basato sul "code" (es: "ControlLeft", "Space", "AltRight")
-    if(e.code === kDotCode || e.code === kDashCode) {
-        e.preventDefault(); // Impedisce azioni di sistema (es. scroll con spazio o apertura menu con Alt)
-        initAudio();
-        if (mode === 'Iambic') {
-            if (e.code === kDotCode) dotPressed = true;
-            if (e.code === kDashCode) dashPressed = true;
-            if (!keyerActive) runIambicKeyer();
-        } else { 
-            playTone(getFreq(e.code === kDotCode ? 'dot' : 'dash'), true); 
+        const kDotCode = document.getElementById('k_dot').value;
+        const kDashCode = document.getElementById('k_dash').value;
+        const mode = document.getElementById('c_mode').value;
+        
+        if(e.code === kDotCode || e.code === kDashCode) {
+            e.preventDefault(); 
+            initAudio();
+            if (mode === 'Iambic') {
+                if (e.code === kDotCode) dotPressed = true;
+                if (e.code === kDashCode) dashPressed = true;
+                if (!keyerActive) runIambicKeyer();
+            } else { 
+                playTone(getFreq(e.code === kDotCode ? 'dot' : 'dash'), true); 
+            }
         }
-    }
-});
+    });
     
     document.addEventListener('keyup', (e) => {
-    if(document.getElementById('v_input_source').value !== 'manual') return;
-    
-    const kDotCode = document.getElementById('k_dot').value;
-    const kDashCode = document.getElementById('k_dash').value;
-    const mode = document.getElementById('c_mode').value;
-    
-    if(e.code === kDotCode || e.code === kDashCode) {
-        e.preventDefault();
-        if (mode === 'Iambic') {
-            if (e.code === kDotCode) dotPressed = false;
-            if (e.code === kDashCode) dashPressed = false;
-        } else { 
-            stopTone(true); 
+        if(document.getElementById('v_input_source').value !== 'manual') return;
+        
+        const kDotCode = document.getElementById('k_dot').value;
+        const kDashCode = document.getElementById('k_dash').value;
+        const mode = document.getElementById('c_mode').value;
+        
+        if(e.code === kDotCode || e.code === kDashCode) {
+            e.preventDefault();
+            if (mode === 'Iambic') {
+                if (e.code === kDotCode) dotPressed = false;
+                if (e.code === kDashCode) dashPressed = false;
+            } else { 
+                stopTone(true); 
+            }
         }
-    }
-});
+    });
 
     // =======================================================
     // 4. RETE P2P WEBRTC (PeerJS) CON RELIABLE DATA
     // =======================================================
     function setStatus(msg, color) {
         const bar = document.getElementById('status-bar');
-        bar.innerText = "⚪ " + msg;
+        bar.textContent = "⚪ " + msg;
         bar.style.color = color;
     }
 
@@ -605,7 +604,6 @@
                 if (data && data.hostId) {
                     if (data.password !== pass) { alert("Accesso negato: Password errata!"); location.reload(); return; }
                     setStatus("Password OK! Stabilendo P2P...", "#3498db");
-                    // AGGIUNTA GARANZIA RELIABLE (ORDINE E CONSEGNA SICURA)
                     const call = peer.connect(data.hostId, { metadata: { user: user }, reliable: true });
                     setupDataChannel(call, user, true);
                 } else {
@@ -619,7 +617,6 @@
         peer.on('error', (err) => setStatus("Errore P2P: " + err.type, "#e74c3c"));
     }
 
-    // Permette la connessione premendo "Invio" nel campo Password
     document.getElementById('n_pass').addEventListener('keydown', e => {
         if (e.key === 'Enter') { e.preventDefault(); connectP2P(); }
     });
@@ -669,35 +666,34 @@
         el.value = '';
     }
     
-    // Tasto Invio nella Chat
     document.getElementById('chat-input').addEventListener('keydown', e => { 
         if(e.key === 'Enter') { e.preventDefault(); sendChat(); } 
     });
     
     function appendChat(s, m, cls = "") {
-    const b = document.getElementById('chat-box');
-    const div = document.createElement('div');
-    if (cls) div.className = cls;
+        const b = document.getElementById('chat-box');
+        const div = document.createElement('div');
+        if (cls) div.className = cls;
 
-    const spanName = document.createElement('strong');
-    spanName.textContent = `[${s}]: `; // Sicuro
-    
-    const spanMsg = document.createElement('span');
-    spanMsg.textContent = m; // Sicuro
+        const spanName = document.createElement('strong');
+        spanName.textContent = `[${s}]: `;
+        
+        const spanMsg = document.createElement('span');
+        spanMsg.textContent = m; 
 
-    div.appendChild(spanName);
-    div.appendChild(spanMsg);
-    b.appendChild(div);
-    
-    b.scrollTop = b.scrollHeight;
-}
-    function clearChat() { 
-    const b = document.getElementById('chat-box');
-    // Rimuove tutti i nodi figli in modo efficiente e sicuro
-    while (b.firstChild) {
-        b.removeChild(b.firstChild);
+        div.appendChild(spanName);
+        div.appendChild(spanMsg);
+        b.appendChild(div);
+        
+        b.scrollTop = b.scrollHeight;
     }
-}
+
+    function clearChat() { 
+        const b = document.getElementById('chat-box');
+        while (b.firstChild) {
+            b.removeChild(b.firstChild);
+        }
+    }
 
     // =======================================================
     // 5. GENERATORE AUTOMATICO E SISTEMA NOTIFICHE CW
@@ -744,7 +740,7 @@
     let isPlayingSystem = false;
 
     function playSystemCW(text) {
-        if (!document.getElementById('a_rx_enable').checked) return; // Suona solo se l'audio in ricezione è acceso
+        if (!document.getElementById('a_rx_enable').checked) return;
         for(let c of text.toUpperCase()) {
             if(MORSE_CODE[c] || c === ' ') systemQueue.push(c);
         }
@@ -766,7 +762,6 @@
             
             for(let s of syms) {
                 const type = s === '.' ? 'dot' : 'dash';
-                // isSystem = true (il terzo parametro) previene l'invio via P2P di questo suono!
                 playTone(getFreq(type), true, true); 
                 await new Promise(r => setTimeout(r, type === 'dot' ? dot : dash));
                 stopTone(true, true);
@@ -790,7 +785,7 @@
             serialWriter = encoder.writable.getWriter();
             readSerialData();
             sendParamsToArduino();
-            document.getElementById('btn-serial').innerText = "✅ USB OK";
+            document.getElementById('btn-serial').textContent = "✅ USB OK";
             document.getElementById('btn-serial').style.backgroundColor = "#27ae60";
         } catch (e) { 
             console.error(e); alert("Nessuna porta selezionata.");
@@ -848,9 +843,7 @@
             document.getElementById('c_dash_ms').value = dot * 3;
             document.getElementById('c_spc_ms').value = dot;
             
-            // OTTIMIZZAZIONE LATENZA: Attacco e Stacco fulminei ad alti WPM
             if(document.getElementById('a_auto_env').checked) {
-                // Se superiamo i 25 WPM, forziamo l'inviluppo a 1ms o 2ms per non "ammorbidire" la nota
                 let env = Math.round(dot * 0.1);
                 if (wpm >= 30) env = 1; 
                 else if (wpm >= 20) env = 2;
