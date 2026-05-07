@@ -28,7 +28,7 @@
         
         label { text-align: right; color: #bdc3c7; font-size: 14px; }
         input[type="text"], input[type="password"], input[type="number"], select { background-color: #111; color: white; border: 1px solid #555; padding: 10px; border-radius: 4px; width: 100%; box-sizing: border-box; }
-        input[readonly] { background-color: #2a2a2a; color: #7f8c8d; cursor: not-allowed; } /* Stile per campi bloccati */
+        input[readonly] { background-color: #2a2a2a; color: #7f8c8d; cursor: not-allowed; } 
         input[type="range"] { cursor: pointer; }
         
         button { background-color: #34495e; color: white; border: none; padding: 12px 15px; cursor: pointer; border-radius: 4px; font-weight: bold; transition: 0.2s; font-size: 15px;}
@@ -302,7 +302,6 @@
     let myPresenceRef = null;
     let knownUsers = new Set();
 
-    // 🎯 OSCILLATORI PRE-CREATI PER BASSA LATENZA
     let preOscLocal = null, preGainLocal = null;
     let preOscRemote = null, preGainRemote = null;
 
@@ -319,7 +318,6 @@
         myPresenceRef.set({ t: Date.now() });
         myPresenceRef.onDisconnect().remove();
         
-        // Ascolta i messaggi privati
         db.ref('lobby/pms/' + user).on('child_added', (snap) => {
             const data = snap.val();
             if(data) appendChat(data.from, data.msg, "chat-pm");
@@ -346,14 +344,12 @@
             return;
         }
 
-        // --- GESTIONE NOTIFICA ACUSTICA CW ---
         currentUsers.forEach(u => {
             if (u !== myName && !knownUsers.has(u)) {
                 playSystemCW(u + " IN");
             }
         });
         knownUsers = new Set(currentUsers);
-        // ------------------------------------
 
         currentUsers.forEach(u => {
             const userDiv = document.createElement('div');
@@ -392,7 +388,7 @@
     });
 
     // =======================================================
-    // 2. MOTORE AUDIO WEB OTTIMIZZATO (LOW LATENCY + ANTI-CLIP)
+    // 2. MOTORE AUDIO WEB OTTIMIZZATO
     // =======================================================
     function initAudioOptimized() {
         if (!audioCtx) {
@@ -402,7 +398,6 @@
                 sampleRate: 48000
             });
         }
-        
         if (audioCtx.state === 'suspended') {
             audioCtx.resume().catch(e => console.log("Audio resume:", e));
         }
@@ -432,7 +427,8 @@
         return f;
     }
 
-    function playTone(freq, isLocal = true, isSystem = false) {
+    // Aggiunto parametro sendNet per decidere se inviare il comando in rete da qui (Usato solo per Tasto Verticale)
+    function playTone(freq, isLocal = true, isSystem = false, sendNet = true) {
         initAudioOptimized();
         if (isLocal && isTx) return;
         if (!isLocal && rxIsTx) return;
@@ -442,12 +438,13 @@
         if (isLocal) {
             isTx = true;
             if(!isSystem) document.getElementById('mouse-pad').classList.add('active');
-            if (!isSystem && conn && conn.open) conn.send({type: 'DN', f: freq});
+            
+            // Invia DN solo se richiesto (es. Tasto Verticale)
+            if (!isSystem && conn && conn.open && sendNet) conn.send({type: 'DN', f: freq});
 
             preOscLocal.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.0005);
             let vol = parseFloat(document.getElementById('a_vol').value);
             
-            // 🎯 ANTI-CLIP: Rampa gain calcolata sull'attacco
             preGainLocal.gain.cancelScheduledValues(audioCtx.currentTime);
             preGainLocal.gain.setValueAtTime(0, audioCtx.currentTime);
             preGainLocal.gain.linearRampToValueAtTime(vol, audioCtx.currentTime + attack);
@@ -464,13 +461,15 @@
         }
     }
 
-    function stopTone(isLocal = true, isSystem = false) {
+    function stopTone(isLocal = true, isSystem = false, sendNet = true) {
         const rel = (parseInt(document.getElementById('a_release').value) || 5) / 1000;
         
         if (isLocal && isTx) {
             isTx = false;
             if(!isSystem) document.getElementById('mouse-pad').classList.remove('active');
-            if(!isSystem && conn && conn.open) conn.send({type: 'UP'});
+            
+            // Invia UP solo se richiesto
+            if(!isSystem && conn && conn.open && sendNet) conn.send({type: 'UP'});
             
             preGainLocal.gain.cancelScheduledValues(audioCtx.currentTime);
             preGainLocal.gain.setValueAtTime(preGainLocal.gain.value, audioCtx.currentTime);
@@ -492,7 +491,6 @@
     async function runIambicKeyer() {
         keyerActive = true;
         while (dotPressed || dashPressed) {
-            // Lettura istantanea ad ogni ciclo
             const dotTime = parseInt(document.getElementById('c_dot_ms').value);
             const dashTime = parseInt(document.getElementById('c_dash_ms').value);
             const spcTime = parseInt(document.getElementById('c_spc_ms').value) || dotTime;
@@ -509,9 +507,15 @@
     }
 
     async function playKeyerElement(type, duration, space) {
-        playTone(getFreq(type), true);
+        let f = getFreq(type);
+        // INVIA IL PACCHETTO "EL" (Elemento Esatto) SUBITO, all'istante iniziale!
+        if (conn && conn.open) conn.send({type: 'EL', f: f, d: duration});
+        
+        // Suona localmente inibendo l'invio di rete (già fatto con EL)
+        playTone(f, true, false, false);
         await new Promise(r => setTimeout(r, duration));
-        stopTone(true);
+        stopTone(true, false, false);
+        
         await new Promise(r => setTimeout(r, space));
     }
 
@@ -521,14 +525,13 @@
         const mode = document.getElementById('c_mode').value;
         const type = isRight ? 'dash' : 'dot';
         
-        // Se è Iambic o Manuale (Assoluto), usa il keyer interno per le tempistiche
         if (mode === 'Iambic' || mode === 'Manuale') {
             if (type === 'dot') dotPressed = true;
             if (type === 'dash') dashPressed = true;
             if (!keyerActive) runIambicKeyer();
         } else { 
-            // Modalità Verticale (Tono dritto)
-            playTone(getFreq(type), true); 
+            // Modalità Verticale (Manda il classico pacchetto DN/UP perché la durata non è nota)
+            playTone(getFreq(type), true, false, true); 
         }
     }
 
@@ -539,7 +542,9 @@
         if (mode === 'Iambic' || mode === 'Manuale') { 
             dotPressed = false; dashPressed = false; 
         } 
-        else { stopTone(true); }
+        else { 
+            stopTone(true, false, true); 
+        }
     }
 
     const pad = document.getElementById('mouse-pad');
@@ -572,7 +577,7 @@
                 if (isRight) dashPressed = true; else dotPressed = true;
             }
             if(!dotPressed && !dashPressed && mode !== 'Iambic' && mode !== 'Manuale') {
-                stopTone(true);
+                stopTone(true, false, true);
             }
         }
     }, {passive: false});
@@ -595,7 +600,7 @@
                 if (e.code === kDashCode) dashPressed = true;
                 if (!keyerActive) runIambicKeyer();
             } else { 
-                playTone(getFreq(e.code === kDotCode ? 'dot' : 'dash'), true); 
+                playTone(getFreq(e.code === kDotCode ? 'dot' : 'dash'), true, false, true); 
             }
         }
     });
@@ -613,13 +618,13 @@
                 if (e.code === kDotCode) dotPressed = false;
                 if (e.code === kDashCode) dashPressed = false;
             } else { 
-                stopTone(true); 
+                stopTone(true, false, true); 
             }
         }
     });
 
     // =======================================================
-    // 4. RETE P2P WEBRTC (PeerJS) CON RELIABLE DATA
+    // 4. RETE P2P WEBRTC (PeerJS) 
     // =======================================================
     function setStatus(msg, color) {
         const bar = document.getElementById('status-bar');
@@ -665,6 +670,8 @@
         if (e.key === 'Enter') { e.preventDefault(); connectP2P(); }
     });
 
+    let rxTimeoutId = null;
+
     function setupDataChannel(c, myUser, isJoiner) {
         conn = c;
         conn.on('open', () => {
@@ -677,9 +684,24 @@
         });
         
         conn.on('data', (d) => {
-            if (d.type === 'CHAT') appendChat(conn.metadata ? conn.metadata.user : "Partner", d.msg, "chat-p2p");
-            else if (d.type === 'DN') playTone(d.f, false);
-            else if (d.type === 'UP') stopTone(false); 
+            if (d.type === 'CHAT') {
+                appendChat(conn.metadata ? conn.metadata.user : "Partner", d.msg, "chat-p2p");
+            }
+            // Gestione del Tasto Verticale
+            else if (d.type === 'DN') {
+                playTone(d.f, false, false, false);
+            }
+            else if (d.type === 'UP') {
+                stopTone(false, false, false); 
+            }
+            // Gestione dei tempi calcolati esatti (Iambic / Tastiera)
+            else if (d.type === 'EL') {
+                clearTimeout(rxTimeoutId);
+                playTone(d.f, false, false, false);
+                rxTimeoutId = setTimeout(() => {
+                    stopTone(false, false, false);
+                }, d.d);
+            }
         });
         
         conn.on('close', () => { alert("Il partner ha chiuso il collegamento."); location.reload(); });
@@ -769,9 +791,16 @@
             
             for(let s of syms) {
                 const type = s === '.' ? 'dot' : 'dash';
-                playTone(getFreq(type), true);
-                await new Promise(r => setTimeout(r, type === 'dot' ? dot : dash));
-                stopTone(true);
+                const duration = type === 'dot' ? dot : dash;
+                let f = getFreq(type);
+                
+                // INVIA SUBITO IL COMANDO ESATTO IN RETE
+                if (conn && conn.open) conn.send({type: 'EL', f: f, d: duration});
+                
+                playTone(f, true, false, false);
+                await new Promise(r => setTimeout(r, duration));
+                stopTone(true, false, false);
+                
                 await new Promise(r => setTimeout(r, spc)); 
             }
             await new Promise(r => setTimeout(r, dot * 2)); 
@@ -806,9 +835,9 @@
             
             for(let s of syms) {
                 const type = s === '.' ? 'dot' : 'dash';
-                playTone(getFreq(type), true, true); 
+                playTone(getFreq(type), true, true, false); 
                 await new Promise(r => setTimeout(r, type === 'dot' ? dot : dash));
-                stopTone(true, true);
+                stopTone(true, true, false);
                 await new Promise(r => setTimeout(r, spc)); 
             }
             await new Promise(r => setTimeout(r, dot * 2)); 
@@ -884,9 +913,9 @@
             if (done) break;
             if (document.getElementById('v_input_source').value !== 'serial') continue;
             const char = value.trim();
-            if (char === '1' || char === 'D') { playTone(getFreq('dot'), true); } 
-            else if (char === 'L') { playTone(getFreq('dash'), true); } 
-            else if (char === '0') { stopTone(true); }
+            if (char === '1' || char === 'D') { playTone(getFreq('dot'), true, false, true); } 
+            else if (char === 'L') { playTone(getFreq('dash'), true, false, true); } 
+            else if (char === '0') { stopTone(true, false, true); }
         }
     }
 
@@ -934,13 +963,12 @@
         }
     }
 
-    // Nuova funzione per far comandare i millisecondi (in Manuale Assoluto) e ricalcolare i WPM
     function updateFromMS() {
         const mode = document.getElementById('c_mode').value;
         if(mode === 'Manuale') {
             const dot = parseInt(document.getElementById('c_dot_ms').value) || 60;
             const wpm = Math.round(1200 / dot);
-            document.getElementById('c_wpm').value = wpm; // Mostra i WPM generati dai ms
+            document.getElementById('c_wpm').value = wpm; 
             
             if(document.getElementById('a_auto_env').checked) {
                 let env = Math.round(dot * 0.1);
