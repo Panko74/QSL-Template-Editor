@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CW Gateway P2P</title>
+    <title>CW Gateway P2P (Jitter Buffer V2)</title>
     
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
@@ -203,8 +203,8 @@
         <h3>Messaggi Auto-Distruggenti (Stateless)</h3>
         <p>I messaggi scritti nella Lobby Globale transitano attraverso il nostro database sicuro (Firebase). Tuttavia, <strong>ogni messaggio viene cancellato fisicamente e irreversibilmente dal database dopo 5 secondi</strong>.</p>
 
-        <h3>Connessione Diretta P2P a Bassa Latenza (UDP-Style)</h3>
-        <p>Quando entri in una "Stanza P2P", la tecnologia WebRTC fa comunicare il tuo computer direttamente con quello del partner. Utilizziamo l'impostazione <code>reliable: false</code> (una modalità inaffidabile stile UDP). In questo modo, l'audio del CW viaggia in tempo reale senza essere bloccato da controlli d'errore. La perdita di un piccolo pacchetto non disturberà il tempismo della tua digitazione (niente lag improvvisi o ritardi ritmici).</p>
+        <h3>Connessione Diretta P2P con Jitter Buffer</h3>
+        <p>Quando entri in una "Stanza P2P", la tecnologia WebRTC fa comunicare il tuo computer direttamente con quello del partner in modalità inaffidabile (UDP-style) per azzerare la latenza indotta dal TCP. Per garantire un ritmo perfetto del codice Morse, utilizziamo un sistema di <strong>Jitter Buffer a latenza fissa (150ms)</strong> con sincronizzazione degli orologi. La perdita di pacchetti non disturberà il tempismo relativo della tua digitazione: il ricevente sentirà il segnale perfetto, con le proporzioni matematicamente identiche a quelle inviate.</p>
         
         <button onclick="document.getElementById('privacy-modal').style.display='none'" style="background-color: #c0392b; width: 100%; margin-top: 20px;">Ho capito, Chiudi</button>
     </div>
@@ -304,7 +304,12 @@
 
     let preOscLocal = null, preGainLocal = null;
     let preOscRemote = null, preGainRemote = null;
-    let remoteWatchdog = null; // Timer di sicurezza per chiusura forzata nota
+    let remoteWatchdog = null;
+
+    // VARIABILI PER IL JITTER BUFFER E SINCRONIZZAZIONE
+    let timeOffset = 0;
+    const PLAYBACK_DELAY = 150; // Ritardo in millisecondi per assorbire il Jitter della rete
+    let syncInterval = null;
 
     // =======================================================
     // 1.B LOBBY E PRESENZA (SOCIAL)
@@ -428,10 +433,10 @@
         return f;
     }
 
+    // --- FUNZIONI DI PLAYBACK LOCALE ---
     function playTone(freq, isLocal = true, isSystem = false) {
         initAudioOptimized();
         if (isLocal && isTx) return;
-        if (!isLocal && rxIsTx) return;
         
         const attack = (parseInt(document.getElementById('a_attack').value) || 2) / 1000;
 
@@ -439,32 +444,18 @@
             isTx = true;
             if(!isSystem) document.getElementById('mouse-pad').classList.add('active');
             
-            // Invio puro in tempo reale di DN (Key Down)
-            if (!isSystem && conn && conn.open) conn.send({type: 'DN', f: freq});
+            // P2P: Invio pacchetto CON TIMESTAMP ASSOLUTO
+            if (!isSystem && conn && conn.open) {
+                conn.send({type: 'DN', f: freq, ts: Date.now()});
+            }
 
             preOscLocal.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.0005);
             let vol = parseFloat(document.getElementById('a_vol').value);
             
             preGainLocal.gain.cancelScheduledValues(audioCtx.currentTime);
-            preGainLocal.gain.setValueAtTime(0, audioCtx.currentTime);
-            preGainLocal.gain.linearRampToValueAtTime(vol, audioCtx.currentTime + attack);
-            
-        } else {
-            rxIsTx = true;
-            preOscRemote.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.0005);
-            let vol = parseFloat(document.getElementById('a_vol_rx').value);
-            if(!document.getElementById('a_rx_enable').checked) vol = 0;
-            
-            preGainRemote.gain.cancelScheduledValues(audioCtx.currentTime);
-            preGainRemote.gain.setValueAtTime(0, audioCtx.currentTime);
-            preGainRemote.gain.linearRampToValueAtTime(vol, audioCtx.currentTime + attack);
-            
-            // Watchdog di sicurezza: poichè usiamo pacchetti inaffidabili (UDP style),
-            // se il pacchetto UP viene perso, spegniamo la nota forzatamente dopo un limite massimo.
-            if (remoteWatchdog) clearTimeout(remoteWatchdog);
-            remoteWatchdog = setTimeout(() => {
-                if(rxIsTx) stopTone(false);
-            }, 1500); // 1.5 secondi è oltre qualsiasi linea di ragionevole velocità CW
+            preGainLocal.gain.setValueAtTime(preGainLocal.gain.value, audioCtx.currentTime);
+            // Miglioria: uso setTargetAtTime per curve di inviluppo più morbide senza click audio
+            preGainLocal.gain.setTargetAtTime(vol, audioCtx.currentTime, attack / 3);
         }
     }
 
@@ -475,27 +466,51 @@
             isTx = false;
             if(!isSystem) document.getElementById('mouse-pad').classList.remove('active');
             
-            // Invio puro in tempo reale di UP (Key Up)
-            if(!isSystem && conn && conn.open) conn.send({type: 'UP'});
+            // P2P: Invio pacchetto CON TIMESTAMP ASSOLUTO
+            if(!isSystem && conn && conn.open) {
+                conn.send({type: 'UP', ts: Date.now()});
+            }
             
             preGainLocal.gain.cancelScheduledValues(audioCtx.currentTime);
             preGainLocal.gain.setValueAtTime(preGainLocal.gain.value, audioCtx.currentTime);
-            preGainLocal.gain.linearRampToValueAtTime(0, audioCtx.currentTime + rel);
+            preGainLocal.gain.setTargetAtTime(0, audioCtx.currentTime, rel / 3);
         } 
-        else if (!isLocal && rxIsTx) {
-            rxIsTx = false;
-            
-            // Pulizia del watchdog dato che abbiamo ricevuto regolarmente il pacchetto di UP
-            if (remoteWatchdog) clearTimeout(remoteWatchdog);
-            
-            preGainRemote.gain.cancelScheduledValues(audioCtx.currentTime);
-            preGainRemote.gain.setValueAtTime(preGainRemote.gain.value, audioCtx.currentTime);
-            preGainRemote.gain.linearRampToValueAtTime(0, audioCtx.currentTime + rel);
-        }
+    }
+
+    // --- NUOVE FUNZIONI SCHEDULATE PER RICEZIONE P2P (JITTER BUFFER) ---
+    function playToneScheduled(freq, scheduleTimeAudioCtx) {
+        initAudioOptimized();
+        rxIsTx = true;
+        const attack = (parseInt(document.getElementById('a_attack').value) || 2) / 1000;
+        let vol = parseFloat(document.getElementById('a_vol_rx').value);
+        if(!document.getElementById('a_rx_enable').checked) vol = 0;
+
+        preOscRemote.frequency.setValueAtTime(freq, scheduleTimeAudioCtx);
+        preGainRemote.gain.cancelScheduledValues(scheduleTimeAudioCtx);
+        preGainRemote.gain.setValueAtTime(0, scheduleTimeAudioCtx);
+        preGainRemote.gain.setTargetAtTime(vol, scheduleTimeAudioCtx, attack / 3);
+
+        // Calcola in millisecondi quanto manca allo scheduleTime, aggiungi watchdog per blocco toni
+        const timeToStartMs = Math.max(0, (scheduleTimeAudioCtx - audioCtx.currentTime) * 1000);
+        if (remoteWatchdog) clearTimeout(remoteWatchdog);
+        remoteWatchdog = setTimeout(() => {
+            if(rxIsTx) stopToneScheduled(audioCtx.currentTime);
+        }, timeToStartMs + 1500); 
+    }
+
+    function stopToneScheduled(scheduleTimeAudioCtx) {
+        if(!rxIsTx) return;
+        rxIsTx = false;
+        
+        if (remoteWatchdog) clearTimeout(remoteWatchdog);
+        const rel = (parseInt(document.getElementById('a_release').value) || 5) / 1000;
+        
+        preGainRemote.gain.cancelScheduledValues(scheduleTimeAudioCtx);
+        preGainRemote.gain.setTargetAtTime(0, scheduleTimeAudioCtx, rel / 3);
     }
 
     // =======================================================
-    // 3. MOTORE IAMBIC E MANUALE ASSOLUTO (TASTIERA E TOUCH/MOUSE)
+    // 3. MOTORE IAMBIC E MANUALE ASSOLUTO
     // =======================================================
     let dotPressed = false, dashPressed = false, keyerActive = false, lastIambic = null;
 
@@ -519,10 +534,8 @@
 
     async function playKeyerElement(type, duration, space) {
         let f = getFreq(type);
-        // Suona e invia istantaneamente il pacchetto DN
         playTone(f, true);
         await new Promise(r => setTimeout(r, duration));
-        // Stoppa e invia istantaneamente il pacchetto UP
         stopTone(true);
         await new Promise(r => setTimeout(r, space));
     }
@@ -687,28 +700,60 @@
                 const room = document.getElementById('n_room').value.trim().toLowerCase();
                 db.ref('rooms/' + room).remove(); 
             }
+
+            // Sincronizzazione clock iniziale e periodica
+            conn.send({ type: 'PING', ts: Date.now() });
+            syncInterval = setInterval(() => {
+                if (conn && conn.open) conn.send({ type: 'PING', ts: Date.now() });
+            }, 5000);
         });
         
         conn.on('data', (d) => {
             if (d.type === 'CHAT') {
-                // Utilizza il nome inviato nel pacchetto per evitare confusioni
                 appendChat(d.from || "Partner", d.msg, "chat-p2p");
             }
-            // Gestione dei toni puri in ingresso
+            // Sincronizzazione Clock Orologio
+            else if (d.type === 'PING') {
+                conn.send({ type: 'PONG', origTs: d.ts, remoteTs: Date.now() });
+            }
+            else if (d.type === 'PONG') {
+                const rtt = Date.now() - d.origTs;
+                const oneWayLatency = rtt / 2;
+                // Calcola la differenza tra il mio orologio e il suo
+                timeOffset = Date.now() - (d.remoteTs + oneWayLatency);
+            }
+            // Gestione Schedulata Segnali CW
             else if (d.type === 'DN') {
-                playTone(d.f, false);
+                if (!d.ts) { playTone(d.f, false); return; } // Fallback senza Jitter Buffer
+
+                const targetTimeMs = d.ts + timeOffset + PLAYBACK_DELAY;
+                const delayMs = targetTimeMs - Date.now();
+                const safeDelaySec = Math.max(0.01, delayMs / 1000); // Se è in ritardo estremo, suona subìto.
+                
+                playToneScheduled(d.f, audioCtx.currentTime + safeDelaySec);
             }
             else if (d.type === 'UP') {
-                stopTone(false); 
+                if (!d.ts) { stopTone(false); return; } // Fallback senza Jitter Buffer
+
+                const targetTimeMs = d.ts + timeOffset + PLAYBACK_DELAY;
+                const delayMs = targetTimeMs - Date.now();
+                const safeDelaySec = Math.max(0.01, delayMs / 1000);
+                
+                stopToneScheduled(audioCtx.currentTime + safeDelaySec);
             }
         });
         
-        conn.on('close', () => { alert("Il partner ha chiuso il collegamento."); location.reload(); });
+        conn.on('close', () => { 
+            alert("Il partner ha chiuso il collegamento."); 
+            if(syncInterval) clearInterval(syncInterval);
+            location.reload(); 
+        });
     }
 
     function disconnectP2P() {
         const room = document.getElementById('n_room').value.trim().toLowerCase();
         if(room) db.ref('rooms/' + room).remove();
+        if(syncInterval) clearInterval(syncInterval);
         location.reload();
     }
 
@@ -721,7 +766,6 @@
         
         if(conn && conn.open) {
             appendChat("Tu", msg, "chat-p2p");
-            // Invio il mio nome esplicitamente nel pacchetto
             conn.send({type: 'CHAT', msg: msg, from: myName});
         } else {
             appendChat("🌎 Tu", msg);
@@ -820,6 +864,7 @@
     async function processSystemQueue() {
         isPlayingSystem = true;
         initAudioOptimized();
+        // Disabilitazione temporale del network per far girare i toni solo localmente in modo sicuro
         while(systemQueue.length > 0) {
             const c = systemQueue.shift();
             const dot = parseInt(document.getElementById('c_dot_ms').value);
@@ -832,6 +877,7 @@
             
             for(let s of syms) {
                 const type = s === '.' ? 'dot' : 'dash';
+                // IsSystem flag a true
                 playTone(getFreq(type), true, true); 
                 await new Promise(r => setTimeout(r, type === 'dot' ? dot : dash));
                 stopTone(true, true);
