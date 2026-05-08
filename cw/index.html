@@ -13,7 +13,7 @@
         /* --- STILI BASE --- */
         body { background-color: #1a1a1a; color: white; font-family: Arial, sans-serif; margin: 0; padding: 20px; display: flex; gap: 20px; justify-content: center; box-sizing: border-box; }
         .panel-left { flex: 2; min-width: 600px; display: flex; flex-direction: column; gap: 15px; }
-        .panel-right { flex: 1; min-width: 320px; display: flex; flex-direction: column; gap: 15px; }
+        .panel-right { flex: 1; min-width: 350px; display: flex; flex-direction: column; gap: 15px; }
         
         .main-box { border: 2px solid #3498db; border-radius: 8px; padding: 15px; background-color: #222; box-shadow: 0 4px 8px rgba(0,0,0,0.5); }
         .main-title { font-size: 1.1em; font-weight: bold; color: #3498db; margin-bottom: 10px; text-transform: uppercase; text-align: center;}
@@ -31,7 +31,7 @@
         input[readonly] { background-color: #2a2a2a; color: #7f8c8d; cursor: not-allowed; } 
         input[type="range"] { cursor: pointer; }
         
-        button { background-color: #34495e; color: white; border: none; padding: 12px 15px; cursor: pointer; border-radius: 4px; font-weight: bold; transition: 0.2s; font-size: 15px;}
+        button { background-color: #34495e; color: white; border: none; padding: 12px 15px; cursor: pointer; border-radius: 4px; font-weight: bold; transition: 0.2s; font-size: 14px;}
         button:hover { background-color: #2c3e50; }
         
         .btn-green { background-color: #27ae60; padding: 12px; width: 100%; font-size: 15px; }
@@ -48,9 +48,13 @@
         /* LOBBY E CHAT */
         .lobby-box { background-color: #111; border: 1px solid #444; border-radius: 5px; padding: 10px; overflow-y: auto; height: 120px; margin-bottom: 10px;}
         .lobby-user { display: flex; justify-content: space-between; align-items: center; padding: 5px; border-bottom: 1px solid #333; }
-        .lobby-user button { background-color: #8e44ad; padding: 5px 10px; font-size: 12px; }
+        .lobby-user button { background-color: #8e44ad; padding: 5px 10px; font-size: 11px; margin-left: 3px; }
         
-        .chat-box { background-color: #111; border: 1px solid #444; border-radius: 5px; padding: 15px; overflow-y: auto; font-family: monospace; height: 200px; color: #bdc3c7; font-size: 14px;}
+        .chat-tabs { display: flex; gap: 2px; margin-bottom: -1px; }
+        .tab-btn { background-color: #333; flex: 1; padding: 10px; color: #bdc3c7; border-radius: 5px 5px 0 0; border-bottom: none; cursor: pointer; }
+        .tab-btn.active { background-color: #111; color: #e67e22; font-weight: bold; border: 1px solid #444; border-bottom: 1px solid #111;}
+        
+        .chat-box { background-color: #111; border: 1px solid #444; padding: 15px; overflow-y: auto; font-family: monospace; height: 200px; color: #bdc3c7; font-size: 14px;}
         .chat-sys { color: #f39c12; }
         .chat-p2p { color: #2ecc71; }
         .chat-pm { color: #9b59b6; font-weight: bold; }
@@ -139,10 +143,7 @@
                 <option value="Manuale">Manuale Assoluto</option>
             </select>
             <label>WPM:</label><input type="number" id="c_wpm" value="20" oninput="updateWPM(); sendParamsToArduino(); saveConfig();">
-            <label>Tono (Hz):</label><input type="number" id="c_freq" value="750" oninput="sendParamsToArduino(); saveConfig();">
-            <label>Sgancio:</label><input type="number" id="c_hang" value="500" oninput="saveConfig()">
-        </div>
-        <div class="grid-4" style="margin-top: 15px;">
+            
             <label>Punto ms:</label><input type="number" id="c_dot_ms" value="60" oninput="updateFromMS(); saveConfig()">
             <label>Linea ms:</label><input type="number" id="c_dash_ms" value="180" oninput="updateFromMS(); saveConfig()">
             <label>Spazio ms:</label><input type="number" id="c_spc_ms" value="60" oninput="updateFromMS(); saveConfig()">
@@ -160,14 +161,17 @@
             <label>Vol RX:</label><input type="number" id="a_vol_rx" value="1.0" step="0.1" onchange="saveConfig()">
             <label>Attacco (ms):</label><input type="number" id="a_attack" value="2" onchange="saveConfig()">
             <label>Stacco (ms):</label><input type="number" id="a_release" value="5" onchange="saveConfig()">
-        </div>
+            
+            <label>Tono (Hz):</label><input type="number" id="c_freq" value="750" oninput="sendParamsToArduino(); saveConfig();">
+            <div></div> </div>
         <div class="grid-4" style="margin-top: 10px;">
             <label><input type="checkbox" id="c_bitonal" onchange="saveConfig()"> BITONALE</label><span></span>
             <label>Hz Punto:</label><input type="number" id="c_f_dot" value="700" onchange="saveConfig()">
             <label>Hz Linea:</label><input type="number" id="c_f_dash" value="400" onchange="saveConfig()">
         </div>
         <label style="display:block; margin-top: 15px;"><input type="checkbox" id="a_auto_env" checked onchange="saveConfig()"> Auto Inviluppo (Adatta a WPM)</label>
-        <label style="display:block; margin-top: 10px;"><input type="checkbox" id="a_rx_enable" checked onchange="saveConfig()"> Ricezione Audio Abilitata</label>
+        <label style="display:block; margin-top: 10px;"><input type="checkbox" id="a_rx_enable" checked onchange="saveConfig()"> Ricezione Audio CW Abilitata</label>
+        <label style="display:block; margin-top: 10px;"><input type="checkbox" id="a_sys_sounds" checked onchange="saveConfig()"> Suoni di Notifica (Ingressi Lobby/Inviti)</label>
     </details>
 </div>
 
@@ -179,11 +183,18 @@
         </div>
     </div>
 
-    <div style="background-color: #222; padding: 15px; border-radius: 8px; border: 1px solid #444; flex: 1; display: flex; flex-direction: column;">
-        <div style="font-weight: bold; color: #e67e22; margin-bottom: 10px; text-transform: uppercase;">💬 Chat Pubblica & P2P</div>
-        <div class="chat-box" id="chat-box"></div>
+    <div style="background-color: #222; padding: 15px 15px 15px 15px; border-radius: 8px; border: 1px solid #444; flex: 1; display: flex; flex-direction: column;">
+        
+        <div class="chat-tabs">
+            <button id="tab-global" class="tab-btn active" onclick="switchChat('global')">🌎 Globale</button>
+            <button id="tab-p2p" class="tab-btn" onclick="switchChat('p2p')">🔗 P2P <span id="p2p-status">🔴</span></button>
+        </div>
+        
+        <div class="chat-box" id="chat-global"></div>
+        <div class="chat-box" id="chat-p2p" style="display:none; border-top-color: #111;"></div>
+        
         <div style="display: flex; gap: 5px; margin-top: 10px;">
-            <input type="text" id="chat-input" placeholder="Messaggio in Stanza o Globale..." style="flex: 1;">
+            <input type="text" id="chat-input" placeholder="Scrivi un messaggio..." style="flex: 1;">
             <button id="btn-send" onclick="sendChat()" style="background-color: #2980b9;">Invia</button>
             <button onclick="clearChat()" style="background-color: #c0392b; padding: 12px 10px;" title="Pulisci">🗑️</button>
         </div>
@@ -225,7 +236,6 @@
             mode: document.getElementById('c_mode').value,
             wpm: document.getElementById('c_wpm').value,
             freq: document.getElementById('c_freq').value,
-            hang: document.getElementById('c_hang').value,
             dot_ms: document.getElementById('c_dot_ms').value,
             dash_ms: document.getElementById('c_dash_ms').value,
             spc_ms: document.getElementById('c_spc_ms').value,
@@ -237,7 +247,8 @@
             attack: document.getElementById('a_attack').value,
             release: document.getElementById('a_release').value,
             auto_env: document.getElementById('a_auto_env').checked,
-            rx_enable: document.getElementById('a_rx_enable').checked
+            rx_enable: document.getElementById('a_rx_enable').checked,
+            sys_sounds: document.getElementById('a_sys_sounds').checked
         };
         localStorage.setItem('cw_gateway_settings', JSON.stringify(config));
     }
@@ -256,7 +267,6 @@
                 if(c.mode) document.getElementById('c_mode').value = c.mode;
                 if(c.wpm) document.getElementById('c_wpm').value = c.wpm;
                 if(c.freq) document.getElementById('c_freq').value = c.freq;
-                if(c.hang) document.getElementById('c_hang').value = c.hang;
                 if(c.dot_ms) document.getElementById('c_dot_ms').value = c.dot_ms;
                 if(c.dash_ms) document.getElementById('c_dash_ms').value = c.dash_ms;
                 if(c.spc_ms) document.getElementById('c_spc_ms').value = c.spc_ms;
@@ -274,6 +284,7 @@
                 if(c.release) document.getElementById('a_release').value = c.release;
                 document.getElementById('a_auto_env').checked = c.auto_env !== false;
                 document.getElementById('a_rx_enable').checked = c.rx_enable !== false;
+                document.getElementById('a_sys_sounds').checked = c.sys_sounds !== false;
             } catch(e){}
         }
         updateWPM();
@@ -308,11 +319,11 @@
 
     // VARIABILI PER IL JITTER BUFFER E SINCRONIZZAZIONE
     let timeOffset = 0;
-    const PLAYBACK_DELAY = 150; // Ritardo in millisecondi per assorbire il Jitter della rete
+    const PLAYBACK_DELAY = 150; // Ritardo in millisecondi per assorbire il Jitter
     let syncInterval = null;
 
     // =======================================================
-    // 1.B LOBBY E PRESENZA (SOCIAL)
+    // 1.B LOBBY E PRESENZA (SOCIAL & INVITI)
     // =======================================================
     function updateLobbyPresence() {
         const user = document.getElementById('n_user').value.trim();
@@ -326,7 +337,30 @@
         
         db.ref('lobby/pms/' + user).on('child_added', (snap) => {
             const data = snap.val();
-            if(data) appendChat(data.from, data.msg, "chat-pm");
+            if(data) {
+                if (data.type === 'INVITE') {
+                    // Box speciale di invito nella chat globale
+                    const div = document.createElement('div');
+                    div.className = 'chat-pm';
+                    div.style.backgroundColor = '#2c3e50';
+                    div.style.padding = '10px';
+                    div.style.borderRadius = '5px';
+                    div.style.marginTop = '8px';
+                    div.style.marginBottom = '8px';
+                    div.style.borderLeft = '4px solid #3498db';
+                    div.innerHTML = `🔔 <strong>Da ${data.from}:</strong> Ti ha invitato in una stanza P2P! <br>
+                                     <button onclick="acceptInvite('${data.room}', '${data.pass}')" style="background-color:#27ae60; padding:6px 15px; margin-top:8px; font-size:12px; border-radius:4px; border:none; color:white; cursor:pointer;">✔️ ACCETTA E CONNETTI</button>`;
+                    
+                    const b = document.getElementById('chat-global');
+                    b.appendChild(div);
+                    b.scrollTop = b.scrollHeight;
+                    
+                    if(document.getElementById('a_sys_sounds').checked) playSystemCW("I"); 
+                } else {
+                    appendChat("Da " + data.from, data.msg, "chat-pm", "global");
+                    if(document.getElementById('a_sys_sounds').checked) playSystemCW("M");
+                }
+            }
             snap.ref.remove(); 
         });
     }
@@ -340,19 +374,14 @@
         const myName = document.getElementById('n_user').value.trim();
         
         if(currentUsers.length === 0) {
-            const emptyDiv = document.createElement('div');
-            emptyDiv.style.color = '#7f8c8d';
-            emptyDiv.style.textAlign = 'center';
-            emptyDiv.style.marginTop = '20px';
-            emptyDiv.textContent = 'Nessuno online';
-            listDiv.appendChild(emptyDiv);
+            listDiv.innerHTML = '<div style="color:#7f8c8d; text-align:center; margin-top: 20px;">Nessuno online</div>';
             knownUsers.clear();
             return;
         }
 
         currentUsers.forEach(u => {
             if (u !== myName && !knownUsers.has(u)) {
-                playSystemCW(u + " IN");
+                if(document.getElementById('a_sys_sounds').checked) playSystemCW(u + " IN");
             }
         });
         knownUsers = new Set(currentUsers);
@@ -364,22 +393,31 @@
             const nameSpan = document.createElement('span');
             nameSpan.textContent = u === myName ? u + " (Tu)" : u;
             nameSpan.style.color = u === myName ? "#2ecc71" : "#bdc3c7";
-            
             userDiv.appendChild(nameSpan);
 
             if (u !== myName) {
-                const btn = document.createElement('button');
-                btn.textContent = "💬 Privato";
-                btn.onclick = () => {
-                    const msg = prompt(`Invia un messaggio privato a ${u}:`);
+                const btnContainer = document.createElement('div');
+                
+                const btnChat = document.createElement('button');
+                btnChat.textContent = "💬 PM";
+                btnChat.onclick = () => {
+                    const msg = prompt(`Invia messaggio privato a ${u}:`);
                     if(msg && msg.trim()) {
                         const pmRef = db.ref('lobby/pms/' + u).push({ from: myName, msg: msg });
-                        appendChat(`A ${u}`, msg, "chat-pm");
+                        appendChat(`A ${u}`, msg, "chat-pm", "global");
                         pmRef.onDisconnect().remove();
                         setTimeout(() => { pmRef.remove(); pmRef.onDisconnect().cancel(); }, 5000);
                     }
                 };
-                userDiv.appendChild(btn);
+                
+                const btnInvita = document.createElement('button');
+                btnInvita.textContent = "🔗 Invita";
+                btnInvita.style.backgroundColor = "#2980b9";
+                btnInvita.onclick = () => sendInvite(u);
+                
+                btnContainer.appendChild(btnChat);
+                btnContainer.appendChild(btnInvita);
+                userDiv.appendChild(btnContainer);
             }
             listDiv.appendChild(userDiv);
         });
@@ -388,10 +426,114 @@
     db.ref('lobby/global_chat').on('child_added', (snap) => {
         const data = snap.val();
         const myName = document.getElementById('n_user').value.trim();
-        if(data && data.from !== myName && !conn && (Date.now() - data.t < 10000)) { 
-            appendChat("🌎 " + data.from, data.msg);
+        if(data && data.from !== myName && (Date.now() - data.t < 10000)) { 
+            appendChat("🌎 " + data.from, data.msg, "", "global");
         }
     });
+
+    // SISTEMA INVITI
+    function sendInvite(toUser) {
+        const randRoom = "cw-" + Math.random().toString(36).substr(2, 5);
+        const randPass = Math.random().toString(36).substr(2, 4);
+        
+        // Imposto client per fare da Host
+        document.getElementById('n_room').value = randRoom;
+        document.getElementById('n_pass').value = randPass;
+        saveConfig();
+        
+        const myName = document.getElementById('n_user').value.trim();
+        db.ref('lobby/pms/' + toUser).push({
+            from: myName,
+            type: 'INVITE',
+            room: randRoom,
+            pass: randPass
+        });
+        
+        switchChat('global');
+        appendChat("SISTEMA", `Invito inviato a ${toUser}. In attesa di accettazione...`, "chat-sys", "global");
+        connectP2P();
+    }
+    
+    function acceptInvite(room, pass) {
+        if(conn || peer) disconnectP2P(); 
+        
+        document.getElementById('n_room').value = room;
+        document.getElementById('n_pass').value = pass;
+        saveConfig();
+        
+        appendChat("SISTEMA", `Accettazione invito. Connessione in corso...`, "chat-sys", "global");
+        connectP2P();
+    }
+
+
+    // =======================================================
+    // CHAT A SCHEDE (TABS)
+    // =======================================================
+    let currentChatTab = 'global';
+    
+    function switchChat(tab) {
+        currentChatTab = tab;
+        document.getElementById('tab-global').classList.toggle('active', tab === 'global');
+        document.getElementById('tab-p2p').classList.toggle('active', tab === 'p2p');
+        
+        document.getElementById('chat-global').style.display = tab === 'global' ? 'block' : 'none';
+        document.getElementById('chat-p2p').style.display = tab === 'p2p' ? 'block' : 'none';
+        
+        const box = document.getElementById(tab === 'global' ? 'chat-global' : 'chat-p2p');
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function sendChat() {
+        const el = document.getElementById('chat-input');
+        const msg = el.value.trim();
+        const myName = document.getElementById('n_user').value.trim() || "Anonimo";
+        if(!msg) return;
+        
+        if(currentChatTab === 'p2p') {
+            if(conn && conn.open) {
+                appendChat("Tu", msg, "chat-p2p", "p2p");
+                conn.send({type: 'CHAT', msg: msg, from: myName});
+            } else {
+                alert("Non sei connesso in nessuna Stanza P2P!");
+            }
+        } else {
+            appendChat("🌎 Tu", msg, "", "global");
+            const msgRef = db.ref('lobby/global_chat').push({ from: myName, msg: msg, t: Date.now() });
+            msgRef.onDisconnect().remove();
+            setTimeout(() => { msgRef.remove(); msgRef.onDisconnect().cancel(); }, 5000);
+        }
+        el.value = '';
+    }
+    
+    document.getElementById('chat-input').addEventListener('keydown', e => { 
+        if(e.key === 'Enter') { e.preventDefault(); sendChat(); } 
+    });
+    
+    function appendChat(s, m, cls = "", target = "global") {
+        const b = document.getElementById(target === 'p2p' ? 'chat-p2p' : 'chat-global');
+        if(!b) return;
+        
+        const div = document.createElement('div');
+        if (cls) div.className = cls;
+
+        const spanName = document.createElement('strong');
+        spanName.textContent = `[${s}]: `;
+        
+        const spanMsg = document.createElement('span');
+        spanMsg.textContent = m; 
+
+        div.appendChild(spanName);
+        div.appendChild(spanMsg);
+        b.appendChild(div);
+        
+        b.scrollTop = b.scrollHeight;
+    }
+
+    function clearChat() { 
+        const b = document.getElementById(currentChatTab === 'p2p' ? 'chat-p2p' : 'chat-global');
+        while (b.firstChild) { b.removeChild(b.firstChild); }
+    }
+
 
     // =======================================================
     // 2. MOTORE AUDIO WEB OTTIMIZZATO (Tempo Reale Puro)
@@ -408,17 +550,14 @@
             audioCtx.resume().catch(e => console.log("Audio resume:", e));
         }
 
-        // --- INIZIO MODIFICA: GHOST OSCILLATOR (DAC KEEP-ALIVE) ---
+        // GHOST OSCILLATOR (DAC KEEP-ALIVE)
         if (!window.keepAliveOsc) {
             window.keepAliveOsc = audioCtx.createOscillator();
             const keepAliveGain = audioCtx.createGain();
-            // Un volume di 0.0001 (o anche inferiore) tiene sveglia la scheda audio 
-            // ma garantisce silenzio assoluto per l'utente
             keepAliveGain.gain.value = 0.0001; 
             window.keepAliveOsc.connect(keepAliveGain).connect(audioCtx.destination);
             window.keepAliveOsc.start();
         }
-        // --- FINE MODIFICA ---
 
         if (!preOscLocal) {
             preOscLocal = audioCtx.createOscillator();
@@ -445,7 +584,6 @@
         return f;
     }
 
-    // --- FUNZIONI DI PLAYBACK LOCALE ---
     function playTone(freq, isLocal = true, isSystem = false) {
         initAudioOptimized();
         if (isLocal && isTx) return;
@@ -456,7 +594,6 @@
             isTx = true;
             if(!isSystem) document.getElementById('mouse-pad').classList.add('active');
             
-            // P2P: Invio pacchetto CON TIMESTAMP ASSOLUTO
             if (!isSystem && conn && conn.open) {
                 conn.send({type: 'DN', f: freq, ts: Date.now()});
             }
@@ -466,7 +603,6 @@
             
             preGainLocal.gain.cancelScheduledValues(audioCtx.currentTime);
             preGainLocal.gain.setValueAtTime(preGainLocal.gain.value, audioCtx.currentTime);
-            // Miglioria: uso setTargetAtTime per curve di inviluppo più morbide senza click audio
             preGainLocal.gain.setTargetAtTime(vol, audioCtx.currentTime, attack / 3);
         }
     }
@@ -478,7 +614,6 @@
             isTx = false;
             if(!isSystem) document.getElementById('mouse-pad').classList.remove('active');
             
-            // P2P: Invio pacchetto CON TIMESTAMP ASSOLUTO
             if(!isSystem && conn && conn.open) {
                 conn.send({type: 'UP', ts: Date.now()});
             }
@@ -489,7 +624,6 @@
         } 
     }
 
-    // --- NUOVE FUNZIONI SCHEDULATE PER RICEZIONE P2P (JITTER BUFFER) ---
     function playToneScheduled(freq, scheduleTimeAudioCtx) {
         initAudioOptimized();
         rxIsTx = true;
@@ -502,7 +636,6 @@
         preGainRemote.gain.setValueAtTime(0, scheduleTimeAudioCtx);
         preGainRemote.gain.setTargetAtTime(vol, scheduleTimeAudioCtx, attack / 3);
 
-        // Calcola in millisecondi quanto manca allo scheduleTime, aggiungi watchdog per blocco toni
         const timeToStartMs = Math.max(0, (scheduleTimeAudioCtx - audioCtx.currentTime) * 1000);
         if (remoteWatchdog) clearTimeout(remoteWatchdog);
         remoteWatchdog = setTimeout(() => {
@@ -683,9 +816,12 @@
             ref.once('value', (snap) => {
                 const data = snap.val();
                 if (data && data.hostId) {
-                    if (data.password !== pass) { alert("Accesso negato: Password errata!"); location.reload(); return; }
+                    if (data.password !== pass) { 
+                        alert("Accesso negato: Password errata!"); 
+                        disconnectP2P(); 
+                        return; 
+                    }
                     setStatus("Password OK! Stabilendo P2P...", "#3498db");
-                    // MODIFICA CRUCIALE UDP-STYLE: reliable: false
                     const call = peer.connect(data.hostId, { metadata: { user: user }, reliable: false });
                     setupDataChannel(call, user, true);
                 } else {
@@ -696,7 +832,10 @@
             });
         });
 
-        peer.on('error', (err) => setStatus("Errore P2P: " + err.type, "#e74c3c"));
+        peer.on('error', (err) => {
+            setStatus("Errore P2P: " + err.type, "#e74c3c");
+            disconnectP2P();
+        });
     }
 
     document.getElementById('n_pass').addEventListener('keydown', e => {
@@ -707,13 +846,17 @@
         conn = c;
         conn.on('open', () => {
             setStatus("CONNESSO P2P DIRETTO!", "#2ecc71");
-            appendChat("SISTEMA", "Sei in Stanza P2P. La chat globale è nascosta.", "chat-sys");
+            
+            // Switch automatico UI alla chat di stanza
+            document.getElementById('p2p-status').textContent = '🟢';
+            switchChat('p2p');
+            appendChat("SISTEMA", "Sei connesso P2P con il partner. Comunicazione CW attiva.", "chat-sys", "p2p");
+            
             if(isJoiner) {
                 const room = document.getElementById('n_room').value.trim().toLowerCase();
                 db.ref('rooms/' + room).remove(); 
             }
 
-            // Sincronizzazione clock iniziale e periodica
             conn.send({ type: 'PING', ts: Date.now() });
             syncInterval = setInterval(() => {
                 if (conn && conn.open) conn.send({ type: 'PING', ts: Date.now() });
@@ -722,100 +865,57 @@
         
         conn.on('data', (d) => {
             if (d.type === 'CHAT') {
-                appendChat(d.from || "Partner", d.msg, "chat-p2p");
+                appendChat(d.from || "Partner", d.msg, "chat-p2p", "p2p");
             }
-            // Sincronizzazione Clock Orologio
             else if (d.type === 'PING') {
                 conn.send({ type: 'PONG', origTs: d.ts, remoteTs: Date.now() });
             }
             else if (d.type === 'PONG') {
                 const rtt = Date.now() - d.origTs;
-                const oneWayLatency = rtt / 2;
-                // Calcola la differenza tra il mio orologio e il suo
-                timeOffset = Date.now() - (d.remoteTs + oneWayLatency);
+                timeOffset = Date.now() - (d.remoteTs + (rtt / 2));
             }
-            // Gestione Schedulata Segnali CW
             else if (d.type === 'DN') {
-                if (!d.ts) { playTone(d.f, false); return; } // Fallback senza Jitter Buffer
+                if (!d.ts) { playTone(d.f, false); return; } 
 
                 const targetTimeMs = d.ts + timeOffset + PLAYBACK_DELAY;
-                const delayMs = targetTimeMs - Date.now();
-                const safeDelaySec = Math.max(0.01, delayMs / 1000); // Se è in ritardo estremo, suona subìto.
-                
+                const safeDelaySec = Math.max(0.01, (targetTimeMs - Date.now()) / 1000);
                 playToneScheduled(d.f, audioCtx.currentTime + safeDelaySec);
             }
             else if (d.type === 'UP') {
-                if (!d.ts) { stopTone(false); return; } // Fallback senza Jitter Buffer
+                if (!d.ts) { stopTone(false); return; } 
 
                 const targetTimeMs = d.ts + timeOffset + PLAYBACK_DELAY;
-                const delayMs = targetTimeMs - Date.now();
-                const safeDelaySec = Math.max(0.01, delayMs / 1000);
-                
+                const safeDelaySec = Math.max(0.01, (targetTimeMs - Date.now()) / 1000);
                 stopToneScheduled(audioCtx.currentTime + safeDelaySec);
             }
         });
         
         conn.on('close', () => { 
             alert("Il partner ha chiuso il collegamento."); 
-            if(syncInterval) clearInterval(syncInterval);
-            location.reload(); 
+            disconnectP2P(); 
         });
     }
 
     function disconnectP2P() {
         const room = document.getElementById('n_room').value.trim().toLowerCase();
         if(room) db.ref('rooms/' + room).remove();
+        
         if(syncInterval) clearInterval(syncInterval);
-        location.reload();
-    }
-
-    // --- CHAT MULTIUSO ---
-    function sendChat() {
-        const el = document.getElementById('chat-input');
-        const msg = el.value.trim();
-        const myName = document.getElementById('n_user').value.trim() || "Anonimo";
-        if(!msg) return;
+        if(conn) { conn.close(); conn = null; }
+        if(peer) { peer.destroy(); peer = null; }
         
-        if(conn && conn.open) {
-            appendChat("Tu", msg, "chat-p2p");
-            conn.send({type: 'CHAT', msg: msg, from: myName});
-        } else {
-            appendChat("🌎 Tu", msg);
-            const msgRef = db.ref('lobby/global_chat').push({ from: myName, msg: msg, t: Date.now() });
-            msgRef.onDisconnect().remove();
-            setTimeout(() => { msgRef.remove(); msgRef.onDisconnect().cancel(); }, 5000);
-        }
-        el.value = '';
-    }
-    
-    document.getElementById('chat-input').addEventListener('keydown', e => { 
-        if(e.key === 'Enter') { e.preventDefault(); sendChat(); } 
-    });
-    
-    function appendChat(s, m, cls = "") {
-        const b = document.getElementById('chat-box');
-        const div = document.createElement('div');
-        if (cls) div.className = cls;
-
-        const spanName = document.createElement('strong');
-        spanName.textContent = `[${s}]: `;
+        // Reset Suoni pendenti
+        stopTone(true);
+        if(rxIsTx) stopToneScheduled(audioCtx ? audioCtx.currentTime : 0);
         
-        const spanMsg = document.createElement('span');
-        spanMsg.textContent = m; 
-
-        div.appendChild(spanName);
-        div.appendChild(spanMsg);
-        b.appendChild(div);
-        
-        b.scrollTop = b.scrollHeight;
+        // Ripristino Interfaccia
+        setStatus("In attesa...", "#f1c40f");
+        document.getElementById('btn-net-connect').style.display = 'block';
+        document.getElementById('btn-net-disconnect').style.display = 'none';
+        document.getElementById('p2p-status').textContent = '🔴';
+        switchChat('global');
     }
 
-    function clearChat() { 
-        const b = document.getElementById('chat-box');
-        while (b.firstChild) {
-            b.removeChild(b.firstChild);
-        }
-    }
 
     // =======================================================
     // 5. GENERATORE AUTOMATICO E SISTEMA NOTIFICHE CW
@@ -861,12 +961,11 @@
         isPlayingAuto = false;
     }
 
-    // --- CODA DI SISTEMA (Per le Notifiche Utenti) ---
     const systemQueue = [];
     let isPlayingSystem = false;
 
     function playSystemCW(text) {
-        if (!document.getElementById('a_rx_enable').checked) return;
+        if (!document.getElementById('a_rx_enable').checked || !document.getElementById('a_sys_sounds').checked) return;
         for(let c of text.toUpperCase()) {
             if(MORSE_CODE[c] || c === ' ') systemQueue.push(c);
         }
@@ -876,7 +975,6 @@
     async function processSystemQueue() {
         isPlayingSystem = true;
         initAudioOptimized();
-        // Disabilitazione temporale del network per far girare i toni solo localmente in modo sicuro
         while(systemQueue.length > 0) {
             const c = systemQueue.shift();
             const dot = parseInt(document.getElementById('c_dot_ms').value);
@@ -889,7 +987,6 @@
             
             for(let s of syms) {
                 const type = s === '.' ? 'dot' : 'dash';
-                // IsSystem flag a true
                 playTone(getFreq(type), true, true); 
                 await new Promise(r => setTimeout(r, type === 'dot' ? dot : dash));
                 stopTone(true, true);
@@ -993,7 +1090,6 @@
         document.getElementById('c_dash_ms').readOnly = !isManual;
         document.getElementById('c_spc_ms').readOnly = !isManual;
         
-        // In Manuale Assoluto, i WPM non si possono forzare
         document.getElementById('c_wpm').readOnly = isManual;
 
         if(!isManual) {
@@ -1013,7 +1109,6 @@
                 document.getElementById('a_release').value = env;
             }
         } else {
-            // Se appena passato in Manuale, allinea i WPM ai ms presenti
             updateFromMS();
         }
     }
