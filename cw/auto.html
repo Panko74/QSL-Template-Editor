@@ -1,0 +1,1692 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CW Gateway P2P (Zero Latency V3)</title>
+    
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database-compat.js"></script>
+    <script src="https://unpkg.com/avrgirl-arduino-browser/avrgirl-arduino.bundle.js"></script>
+    <style>
+        /* --- STILI BASE --- */
+        body { background-color: #1a1a1a; color: white; font-family: Arial, sans-serif; margin: 0; padding: 20px; display: flex; gap: 20px; justify-content: center; box-sizing: border-box; }
+        .panel-left { flex: 2; min-width: 600px; display: flex; flex-direction: column; gap: 15px; }
+        .panel-right { flex: 1; min-width: 350px; display: flex; flex-direction: column; gap: 15px; }
+        
+        .main-box { border: 2px solid #3498db; border-radius: 8px; padding: 15px; background-color: #222; box-shadow: 0 4px 8px rgba(0,0,0,0.5); }
+        .main-title { font-size: 1.1em; font-weight: bold; color: #3498db; margin-bottom: 10px; text-transform: uppercase; text-align: center;}
+        
+        details { background-color: #222; border: 1px solid #444; border-radius: 8px; padding: 10px; }
+        summary { font-weight: bold; cursor: pointer; padding: 12px; background-color: #333; border-radius: 5px; user-select: none; color: #bdc3c7; font-size: 1.1em; transition: 0.2s;}
+        summary:hover { background-color: #444; }
+        details[open] summary { margin-bottom: 15px; color: white; background-color: #e67e22; }
+        
+        .grid-2 { display: grid; grid-template-columns: 120px 1fr; gap: 10px; align-items: center; margin-bottom: 10px; }
+        .grid-4 { display: grid; grid-template-columns: auto 1fr auto 1fr; gap: 10px; align-items: center; margin-bottom: 10px; }
+        
+        label { text-align: right; color: #bdc3c7; font-size: 14px; }
+        input[type="text"], input[type="password"], input[type="number"], select { background-color: #111; color: white; border: 1px solid #555; padding: 10px; border-radius: 4px; width: 100%; box-sizing: border-box; }
+        input[readonly] { background-color: #2a2a2a; color: #7f8c8d; cursor: not-allowed; } 
+        input[type="range"] { cursor: pointer; }
+        
+        button { background-color: #34495e; color: white; border: none; padding: 12px 15px; cursor: pointer; border-radius: 4px; font-weight: bold; transition: 0.2s; font-size: 14px;}
+        button:hover { background-color: #2c3e50; }
+        
+        .btn-green { background-color: #27ae60; padding: 12px; width: 100%; font-size: 15px; }
+        .btn-green:hover { background-color: #2ecc71; }
+        .btn-red { background-color: #c0392b; padding: 12px; width: 100%; font-size: 15px; display: none; }
+        
+        #area-auto, #area-manuale { background-color: #2c3e50; padding: 15px; border-radius: 5px; margin-top: 15px; display: none; border-left: 4px solid #f1c40f;}
+        #area-auto.active, #area-manuale.active { display: block; }
+        #txt-live { font-size: 18px; background-color: #111; border: 1px solid #555; padding: 12px; color: #f1c40f; width: 100%;}
+        
+        #mouse-pad { height: 140px; background-color: #111; border: 2px dashed #7f8c8d; border-radius: 5px; display: flex; align-items: center; justify-content: center; color: #7f8c8d; cursor: crosshair; touch-action: none; }
+        #mouse-pad.active { background-color: #f1c40f; color: #111; border: 2px solid #fff; font-weight: bold;}
+        
+        /* LOBBY E CHAT */
+        .lobby-box { background-color: #111; border: 1px solid #444; border-radius: 5px; padding: 10px; overflow-y: auto; height: 120px; margin-bottom: 10px;}
+        .lobby-user { display: flex; justify-content: space-between; align-items: center; padding: 5px; border-bottom: 1px solid #333; }
+        .lobby-user button { background-color: #8e44ad; padding: 5px 10px; font-size: 11px; margin-left: 3px; }
+        
+        .chat-tabs { display: flex; gap: 2px; margin-bottom: -1px; }
+        .tab-btn { background-color: #333; flex: 1; padding: 10px; color: #bdc3c7; border-radius: 5px 5px 0 0; border-bottom: none; cursor: pointer; }
+        .tab-btn.active { background-color: #111; color: #e67e22; font-weight: bold; border: 1px solid #444; border-bottom: 1px solid #111;}
+        
+        .chat-box { background-color: #111; border: 1px solid #444; padding: 15px; overflow-y: auto; font-family: monospace; height: 200px; color: #bdc3c7; font-size: 14px;}
+        .chat-sys { color: #f39c12; }
+        .chat-p2p { color: #2ecc71; }
+        .chat-pm { color: #9b59b6; font-weight: bold; }
+
+        /* MODALE PRIVACY */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; justify-content: center; align-items: center; padding: 20px; }
+        .modal-content { background: #222; border: 2px solid #3498db; border-radius: 8px; max-width: 650px; width: 100%; max-height: 85vh; overflow-y: auto; padding: 25px; box-sizing: border-box; line-height: 1.6; }
+        .modal-content h2 { color: #3498db; margin-top: 0; border-bottom: 1px solid #444; padding-bottom: 10px;}
+        .modal-content h3 { color: #e67e22; margin-bottom: 5px; }
+        .modal-content p { color: #bdc3c7; margin-top: 0;}
+        
+        @media (max-width: 900px) {
+            body { flex-direction: column; padding: 10px; }
+            .panel-left, .panel-right { min-width: 100%; width: 100%; }
+        }
+        @media (max-width: 600px) {
+            .grid-4 { grid-template-columns: 1fr 1fr; }
+            .grid-2 { grid-template-columns: 1fr; gap: 5px; }
+            label { text-align: left; margin-top: 5px; }
+            #mouse-pad { height: 180px; font-size: 18px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="panel-left">
+    <div class="main-box">
+        <div class="main-title">🔗 Connessione Stanza P2P</div>
+        <div class="grid-2">
+            <label>Tuo Nome:</label><input type="text" id="n_user" placeholder="Esempio:Nome" onchange="saveConfig(); updateLobbyPresence();">
+            <label>Stanza:</label><input type="text" id="n_room" placeholder="Nome della Stanza" onchange="saveConfig()">
+            <label>Password:</label><input type="password" id="n_pass" placeholder="Codice d'accesso" onchange="saveConfig()">
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 15px;">
+            <button id="btn-net-connect" class="btn-green" onclick="connectP2P()">🌐 CONNETTI P2P</button>
+            <button id="btn-net-disconnect" class="btn-red" onclick="disconnectP2P()">🛑 DISCONNETTI</button>
+        </div>
+        <div id="status-bar" style="text-align: center; font-weight: bold; color: #f1c40f; margin-top: 15px; font-size: 16px;">⚪ Stato: In attesa...</div>
+    </div>
+
+    <details open>
+        <summary>📻 1. Sorgente e Modalità CW</summary>
+        <div class="grid-2" style="margin-top: 10px;">
+            <label>Sorgente:</label>
+            <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                <select id="v_input_source" onchange="changeSource(); saveConfig();" style="flex: 1;">
+                    <option value="auto">[Virt] Tastiera (Testo Live)</option>
+                    <option value="manual" selected>[Virt] Manuale (Touch/Mouse/Tasti)</option>
+                    <option value="serial">[Hard] Seriale / Arduino (Chrome)</option>
+                </select>
+                
+                <select id="arduino_model" onchange="changeModelWarning()" style="display:none; background-color:#2c3e50; color:#fff; flex: 1;">
+                    <option value="leonardo">Micro/Leonardo (32U4)</option>
+                    <option value="uno">Arduino Uno</option>
+                    <option value="nano_old" selected>Nano (Old Bootloader)</option>
+                </select>
+                
+                <button onclick="flashSelectedArduino()" id="btn-flash" style="display:none; background-color:#8e44ad;" title="Fallo solo la prima volta!">⚡ Autoconfigura</button>
+                <button onclick="connectSerial()" id="btn-serial" style="display:none; background-color:#e67e22;">Connetti USB</button>
+            </div>
+        </div>
+        
+        <div id="leonardo-warning" style="display:none; color: #e74c3c; font-size: 13px; margin-top: 5px; margin-bottom: 10px; text-align: center; background: #333; padding: 8px; border-radius: 4px; border: 1px solid #e74c3c;">
+            ⚠️ <strong>Usi Leonardo/Micro?</strong> Fai un DOPPIO CLICK VELOCE sul tasto fisico RESET della scheda <u>prima</u> di cliccare "Autoconfigura"!
+        </div>
+
+        <div id="area-auto">
+            <label style="color: #f1c40f; font-weight: bold;">Digita il testo qui (LIVE):</label>
+            <div style="display: flex; gap: 5px; margin-top: 5px;">
+                <input type="text" id="txt-live" autocomplete="off" placeholder="Scrivi in Morse...">
+                <button style="background-color: #e74c3c; border:none;" onclick="document.getElementById('txt-live').value=''">X</button>
+            </div>
+        </div>
+
+        <div id="area-manuale" class="active">
+            <div class="grid-4">
+                <label>Tasto Punto:</label>
+                <input type="text" id="k_dot" value="KeyZ" placeholder="Premi un tasto..." 
+                       readonly style="text-align: center; cursor: pointer; background: #222; color: #fff;" 
+                       onkeydown="this.value=event.code; saveConfig(); event.preventDefault();">
+                
+                <label>Tasto Linea:</label>
+                <input type="text" id="k_dash" value="KeyX" placeholder="Premi un tasto..." 
+                       readonly style="text-align: center; cursor: pointer; background: #222; color: #fff;" 
+                       onkeydown="this.value=event.code; saveConfig(); event.preventDefault();">
+            </div>
+            <div id="mouse-pad">TOUCH PADDLE (Metà Sx = Punto, Metà Dx = Linea)</div>
+        </div>
+    </details>
+
+    <details>
+        <summary>⏱️ 2. Tempi e Impostazioni CW</summary>
+        <div class="grid-4" style="margin-top: 10px;">
+            <label>Modo:</label>
+            <select id="c_mode" onchange="updateWPM(); sendParamsToArduino(); saveConfig();">
+                <option value="Iambic" selected>Iambic</option>
+                <option value="Verticale">Verticale</option>
+                <option value="Manuale">Manuale Assoluto</option>
+            </select>
+            <label>WPM:</label><input type="number" id="c_wpm" value="20" oninput="updateWPM(); sendParamsToArduino(); saveConfig();">
+            
+            <label>Punto ms:</label><input type="number" id="c_dot_ms" value="60" oninput="updateFromMS(); saveConfig()">
+            <label>Linea ms:</label><input type="number" id="c_dash_ms" value="180" oninput="updateFromMS(); saveConfig()">
+            <label>Spazio ms:</label><input type="number" id="c_spc_ms" value="60" oninput="updateFromMS(); saveConfig()">
+        </div>
+    </details>
+
+    <details>
+        <summary>⚙️ 3. Regolazioni Audio e Colori</summary>
+        <div class="grid-4" style="margin-top: 10px;">
+            <label>Vol TX (Monitor):</label>
+            <div style="display: flex; gap: 5px;">
+                <input type="range" id="a_vol_slider" min="0" max="1" step="0.01" value="0.35" oninput="document.getElementById('a_vol').value=this.value; saveConfig();" style="flex: 1; margin: 0;">
+                <input type="number" id="a_vol" value="0.35" step="0.05" onchange="document.getElementById('a_vol_slider').value=this.value; saveConfig();" style="width: 60px; padding: 5px;">
+            </div>
+            <label>Vol RX:</label><input type="number" id="a_vol_rx" value="1.0" step="0.1" onchange="saveConfig()">
+            <label>Attacco (ms):</label><input type="number" id="a_attack" value="2" onchange="saveConfig()">
+            <label>Stacco (ms):</label><input type="number" id="a_release" value="5" onchange="saveConfig()">
+            
+            <label>Tono (Hz):</label><input type="number" id="c_freq" value="750" oninput="sendParamsToArduino(); saveConfig();">
+            <div></div> </div>
+        <div class="grid-4" style="margin-top: 10px;">
+            <label><input type="checkbox" id="c_bitonal" onchange="saveConfig()"> BITONALE</label><span></span>
+            <label>Hz Punto:</label><input type="number" id="c_f_dot" value="700" onchange="saveConfig()">
+            <label>Hz Linea:</label><input type="number" id="c_f_dash" value="400" onchange="saveConfig()">
+        </div>
+        <label style="display:block; margin-top: 15px;"><input type="checkbox" id="a_auto_env" checked onchange="saveConfig()"> Auto Inviluppo (Adatta a WPM)</label>
+        <label style="display:block; margin-top: 10px;"><input type="checkbox" id="a_rx_enable" checked onchange="saveConfig()"> Ricezione Audio CW Abilitata</label>
+        <label style="display:block; margin-top: 10px;"><input type="checkbox" id="a_sys_sounds" checked onchange="saveConfig()"> Suoni di Notifica (Ingressi Lobby/Inviti)</label>
+    </details>
+</div>
+
+<div class="panel-right">
+    <div style="background-color: #222; padding: 15px; border-radius: 8px; border: 1px solid #444;">
+        <div style="font-weight: bold; color: #3498db; margin-bottom: 10px; text-transform: uppercase;">🌍 Lobby (Utenti Online)</div>
+        <div class="lobby-box" id="lobby-list">
+            <div style="color:#7f8c8d; text-align:center; margin-top: 40px;">Caricamento...</div>
+        </div>
+    </div>
+
+    <div style="background-color: #222; padding: 15px 15px 15px 15px; border-radius: 8px; border: 1px solid #444; flex: 1; display: flex; flex-direction: column;">
+        
+        <div class="chat-tabs">
+            <button id="tab-global" class="tab-btn active" onclick="switchChat('global')">🌎 Globale</button>
+            <button id="tab-p2p" class="tab-btn" onclick="switchChat('p2p')">🔗 P2P <span id="p2p-status">🔴</span></button>
+        </div>
+        
+        <div class="chat-box" id="chat-global"></div>
+        <div class="chat-box" id="chat-p2p" style="display:none; border-top-color: #111;"></div>
+        
+        <div style="display: flex; gap: 5px; margin-top: 10px;">
+            <input type="text" id="chat-input" placeholder="Scrivi un messaggio..." style="flex: 1;">
+            <button id="btn-send" onclick="sendChat()" style="background-color: #2980b9;">Invia</button>
+            <button onclick="clearChat()" style="background-color: #c0392b; padding: 12px 10px;" title="Pulisci">🗑️</button>
+        </div>
+    </div>
+    
+    <button onclick="document.getElementById('privacy-modal').style.display='flex'" style="background-color: #2c3e50; font-size: 14px; margin-top: 5px; padding: 10px; border-radius: 8px; width: 100%;">ℹ️ Info e Privacy</button>
+</div>
+
+<div id="privacy-modal" class="modal-overlay">
+    <div class="modal-content">
+        <h2>ℹ️ Come funziona (Privacy Policy)</h2>
+        <p>Benvenuto! Questa applicazione è progettata per il massimo rispetto della tua privacy. Ecco come trattiamo i tuoi dati:</p>
+        
+        <h3>Niente Cookie di Tracciamento</h3>
+        <p>Questa piattaforma <strong>non fa uso di Cookie di profilazione</strong>. Non tracciamo il tuo comportamento e non vendiamo dati a terzi. Le tue impostazioni vengono salvate esclusivamente nel tuo browser locale.</p>
+        
+        <h3>Messaggi Auto-Distruggenti (Stateless)</h3>
+        <p>I messaggi scritti nella Lobby Globale transitano attraverso il nostro database sicuro (Firebase). Tuttavia, <strong>ogni messaggio viene cancellato fisicamente e irreversibilmente dal database dopo 5 secondi</strong>.</p>
+
+        <h3>Connessione Diretta P2P con Jitter Buffer</h3>
+        <p>Quando entri in una "Stanza P2P", la tecnologia WebRTC fa comunicare il tuo computer direttamente con quello del partner in modalità inaffidabile (UDP-style) per azzerare la latenza indotta dal TCP. Per garantire un ritmo perfetto del codice Morse, utilizziamo un sistema di <strong>Jitter Buffer a latenza fissa (150ms)</strong> con sincronizzazione degli orologi. La perdita di pacchetti non disturberà il tempismo relativo della tua digitazione: il ricevente sentirà il segnale perfetto, con le proporzioni matematicamente identiche a quelle inviate.</p>
+        
+        <button onclick="document.getElementById('privacy-modal').style.display='none'" style="background-color: #c0392b; width: 100%; margin-top: 20px;">Ho capito, Chiudi</button>
+    </div>
+</div>
+
+<script>
+    // =======================================================
+    // 0. SALVATAGGIO E CARICAMENTO IMPOSTAZIONI (LOCALSTORAGE)
+    // =======================================================
+    function saveConfig() {
+        const config = {
+            user: document.getElementById('n_user').value,
+            room: document.getElementById('n_room').value,
+            pass: document.getElementById('n_pass').value,
+            source: document.getElementById('v_input_source').value,
+            k_dot: document.getElementById('k_dot').value,
+            k_dash: document.getElementById('k_dash').value,
+            mode: document.getElementById('c_mode').value,
+            wpm: document.getElementById('c_wpm').value,
+            freq: document.getElementById('c_freq').value,
+            dot_ms: document.getElementById('c_dot_ms').value,
+            dash_ms: document.getElementById('c_dash_ms').value,
+            spc_ms: document.getElementById('c_spc_ms').value,
+            bitonal: document.getElementById('c_bitonal').checked,
+            f_dot: document.getElementById('c_f_dot').value,
+            f_dash: document.getElementById('c_f_dash').value,
+            vol: document.getElementById('a_vol').value,
+            vol_rx: document.getElementById('a_vol_rx').value,
+            attack: document.getElementById('a_attack').value,
+            release: document.getElementById('a_release').value,
+            auto_env: document.getElementById('a_auto_env').checked,
+            rx_enable: document.getElementById('a_rx_enable').checked,
+            sys_sounds: document.getElementById('a_sys_sounds').checked
+        };
+        localStorage.setItem('cw_gateway_settings', JSON.stringify(config));
+    }
+
+    function loadConfig() {
+        const saved = localStorage.getItem('cw_gateway_settings');
+        if (saved) {
+            try {
+                const c = JSON.parse(saved);
+                if(c.user) document.getElementById('n_user').value = c.user;
+                if(c.room) document.getElementById('n_room').value = c.room;
+                if(c.pass) document.getElementById('n_pass').value = c.pass;
+                if(c.source) document.getElementById('v_input_source').value = c.source;
+                if(c.k_dot) document.getElementById('k_dot').value = c.k_dot;
+                if(c.k_dash) document.getElementById('k_dash').value = c.k_dash;
+                if(c.mode) document.getElementById('c_mode').value = c.mode;
+                if(c.wpm) document.getElementById('c_wpm').value = c.wpm;
+                if(c.freq) document.getElementById('c_freq').value = c.freq;
+                if(c.dot_ms) document.getElementById('c_dot_ms').value = c.dot_ms;
+                if(c.dash_ms) document.getElementById('c_dash_ms').value = c.dash_ms;
+                if(c.spc_ms) document.getElementById('c_spc_ms').value = c.spc_ms;
+                
+                document.getElementById('c_bitonal').checked = c.bitonal === true;
+                if(c.f_dot) document.getElementById('c_f_dot').value = c.f_dot;
+                if(c.f_dash) document.getElementById('c_f_dash').value = c.f_dash;
+                
+                if(c.vol) {
+                    document.getElementById('a_vol').value = c.vol;
+                    document.getElementById('a_vol_slider').value = c.vol;
+                }
+                if(c.vol_rx) document.getElementById('a_vol_rx').value = c.vol_rx;
+                if(c.attack) document.getElementById('a_attack').value = c.attack;
+                if(c.release) document.getElementById('a_release').value = c.release;
+                document.getElementById('a_auto_env').checked = c.auto_env !== false;
+                document.getElementById('a_rx_enable').checked = c.rx_enable !== false;
+                document.getElementById('a_sys_sounds').checked = c.sys_sounds !== false;
+            } catch(e){}
+        }
+        updateWPM();
+        changeSource();
+    }
+
+    // =======================================================
+    // 1. CONFIGURAZIONE FIREBASE E LIBRERIE
+    // =======================================================
+    const firebaseConfig = {
+        apiKey: "AIzaSyBDp0TmT-ayWZhxGGcHdRKIIZDjwvM6H9E",
+        authDomain: "cw-p2p.firebaseapp.com",
+        projectId: "cw-p2p",
+        storageBucket: "cw-p2p.firebasestorage.app",
+        messagingSenderId: "1026293363853",
+        appId: "1:1026293363853:web:cf491b4a0c62c807541ec4",
+        databaseURL: "https://cw-p2p-default-rtdb.europe-west1.firebasedatabase.app/" 
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const MORSE_CODE = { 'A': '.-', 'B': '-...', 'C': '-.-.', 'D': '-..', 'E': '.', 'F': '..-.', 'G': '--.', 'H': '....', 'I': '..', 'J': '.---', 'K': '-.-', 'L': '.-..', 'M': '--', 'N': '-.', 'O': '---', 'P': '.--.', 'Q': '--.-', 'R': '.-.', 'S': '...', 'T': '-', 'U': '..-', 'V': '...-', 'W': '.--', 'X': '-..-', 'Y': '-.--', 'Z': '--..', '0': '-----', '1': '.----', '2': '..---', '3': '...--', '4': '....-', '5': '.....', '6': '-....', '7': '--...', '8': '---..', '9': '----.', '.': '.-.-.-', ',': '--..--', '?': '..--..', "'": '.----.', '!': '-.-.--', '/': '-..-.', '(': '-.--.', ')': '-.--.-', '&': '.-...', ':': '---...', ';': '-.-.-.', '=': '-...-', '+': '.-.-.', '-': '-....-', '_': '..--.-', '"': '.-..-.', '$': '...-..-', '@': '.--.-.' };
+
+    let audioCtx = null, peer = null, conn = null, port = null, serialWriter = null;
+    let isTx = false, rxIsTx = false;
+    let myPresenceRef = null;
+    let knownUsers = new Set();
+
+    let preOscLocal = null, preGainLocal = null;
+    let preOscRemote = null, preGainRemote = null;
+    let remoteWatchdog = null;
+
+    // VARIABILI PER IL JITTER BUFFER E SINCRONIZZAZIONE
+    let timeOffset = 0;
+    const PLAYBACK_DELAY = 150; 
+    let syncInterval = null;
+
+    // =======================================================
+    // 1.B LOBBY E PRESENZA (SOCIAL & INVITI)
+    // =======================================================
+    function updateLobbyPresence() {
+        const user = document.getElementById('n_user').value.trim();
+        if(!user) return;
+        
+        if(myPresenceRef) myPresenceRef.remove(); 
+        
+        myPresenceRef = db.ref('lobby/users/' + user);
+        myPresenceRef.set({ t: Date.now() });
+        myPresenceRef.onDisconnect().remove();
+        
+        db.ref('lobby/pms/' + user).on('child_added', (snap) => {
+            const data = snap.val();
+            if(data) {
+                if (data.type === 'INVITE') {
+                    const div = document.createElement('div');
+                    div.className = 'chat-pm';
+                    div.style.backgroundColor = '#2c3e50';
+                    div.style.padding = '10px';
+                    div.style.borderRadius = '5px';
+                    div.style.marginTop = '8px';
+                    div.style.marginBottom = '8px';
+                    div.style.borderLeft = '4px solid #3498db';
+                    div.innerHTML = `🔔 <strong>Da ${data.from}:</strong> Ti ha invitato in una stanza P2P! <br>
+                                     <button onclick="acceptInvite('${data.room}', '${data.pass}')" style="background-color:#27ae60; padding:6px 15px; margin-top:8px; font-size:12px; border-radius:4px; border:none; color:white; cursor:pointer;">✔️ ACCETTA E CONNETTI</button>`;
+                    
+                    const b = document.getElementById('chat-global');
+                    b.appendChild(div);
+                    b.scrollTop = b.scrollHeight;
+                    
+                    if(document.getElementById('a_sys_sounds').checked) playSystemCW("I"); 
+                } else {
+                    appendChat("Da " + data.from, data.msg, "chat-pm", "global");
+                    if(document.getElementById('a_sys_sounds').checked) playSystemCW("M");
+                }
+            }
+            snap.ref.remove(); 
+        });
+    }
+
+    db.ref('lobby/users').on('value', (snap) => {
+        const listDiv = document.getElementById('lobby-list');
+        listDiv.textContent = '';
+
+        const users = snap.val() || {};
+        const currentUsers = Object.keys(users);
+        const myName = document.getElementById('n_user').value.trim();
+        
+        if(currentUsers.length === 0) {
+            listDiv.innerHTML = '<div style="color:#7f8c8d; text-align:center; margin-top: 20px;">Nessuno online</div>';
+            knownUsers.clear();
+            return;
+        }
+
+        currentUsers.forEach(u => {
+            if (u !== myName && !knownUsers.has(u)) {
+                if(document.getElementById('a_sys_sounds').checked) playSystemCW(u + " IN");
+            }
+        });
+        knownUsers = new Set(currentUsers);
+
+        currentUsers.forEach(u => {
+            const userDiv = document.createElement('div');
+            userDiv.className = 'lobby-user';
+            
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = u === myName ? u + " (Tu)" : u;
+            nameSpan.style.color = u === myName ? "#2ecc71" : "#bdc3c7";
+            userDiv.appendChild(nameSpan);
+
+            if (u !== myName) {
+                const btnContainer = document.createElement('div');
+                
+                const btnChat = document.createElement('button');
+                btnChat.textContent = "💬 PM";
+                btnChat.onclick = () => {
+                    const msg = prompt(`Invia messaggio privato a ${u}:`);
+                    if(msg && msg.trim()) {
+                        const pmRef = db.ref('lobby/pms/' + u).push({ from: myName, msg: msg });
+                        appendChat(`A ${u}`, msg, "chat-pm", "global");
+                        pmRef.onDisconnect().remove();
+                        setTimeout(() => { pmRef.remove(); pmRef.onDisconnect().cancel(); }, 5000);
+                    }
+                };
+                
+                const btnInvita = document.createElement('button');
+                btnInvita.textContent = "🔗 Invita";
+                btnInvita.style.backgroundColor = "#2980b9";
+                btnInvita.onclick = () => sendInvite(u);
+                
+                btnContainer.appendChild(btnChat);
+                btnContainer.appendChild(btnInvita);
+                userDiv.appendChild(btnContainer);
+            }
+            listDiv.appendChild(userDiv);
+        });
+    });
+
+    db.ref('lobby/global_chat').on('child_added', (snap) => {
+        const data = snap.val();
+        const myName = document.getElementById('n_user').value.trim();
+        if(data && data.from !== myName && (Date.now() - data.t < 10000)) { 
+            appendChat("🌎 " + data.from, data.msg, "", "global");
+        }
+    });
+
+    // SISTEMA INVITI
+    function sendInvite(toUser) {
+        const randRoom = "cw-" + Math.random().toString(36).substr(2, 5);
+        const randPass = Math.random().toString(36).substr(2, 4);
+        
+        document.getElementById('n_room').value = randRoom;
+        document.getElementById('n_pass').value = randPass;
+        saveConfig();
+        
+        const myName = document.getElementById('n_user').value.trim();
+        db.ref('lobby/pms/' + toUser).push({
+            from: myName,
+            type: 'INVITE',
+            room: randRoom,
+            pass: randPass
+        });
+        
+        switchChat('global');
+        appendChat("SISTEMA", `Invito inviato a ${toUser}. In attesa di accettazione...`, "chat-sys", "global");
+        connectP2P();
+    }
+    
+    function acceptInvite(room, pass) {
+        if(conn || peer) disconnectP2P(); 
+        
+        document.getElementById('n_room').value = room;
+        document.getElementById('n_pass').value = pass;
+        saveConfig();
+        
+        appendChat("SISTEMA", `Accettazione invito. Connessione in corso...`, "chat-sys", "global");
+        connectP2P();
+    }
+
+    // =======================================================
+    // CHAT A SCHEDE (TABS)
+    // =======================================================
+    let currentChatTab = 'global';
+    
+    function switchChat(tab) {
+        currentChatTab = tab;
+        document.getElementById('tab-global').classList.toggle('active', tab === 'global');
+        document.getElementById('tab-p2p').classList.toggle('active', tab === 'p2p');
+        
+        document.getElementById('chat-global').style.display = tab === 'global' ? 'block' : 'none';
+        document.getElementById('chat-p2p').style.display = tab === 'p2p' ? 'block' : 'none';
+        
+        const box = document.getElementById(tab === 'global' ? 'chat-global' : 'chat-p2p');
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function sendChat() {
+        const el = document.getElementById('chat-input');
+        const msg = el.value.trim();
+        const myName = document.getElementById('n_user').value.trim() || "Anonimo";
+        if(!msg) return;
+        
+        if(currentChatTab === 'p2p') {
+            if(conn && conn.open) {
+                appendChat("Tu", msg, "chat-p2p", "p2p");
+                conn.send({type: 'CHAT', msg: msg, from: myName});
+            } else {
+                alert("Non sei connesso in nessuna Stanza P2P!");
+            }
+        } else {
+            appendChat("🌎 Tu", msg, "", "global");
+            const msgRef = db.ref('lobby/global_chat').push({ from: myName, msg: msg, t: Date.now() });
+            msgRef.onDisconnect().remove();
+            setTimeout(() => { msgRef.remove(); msgRef.onDisconnect().cancel(); }, 5000);
+        }
+        el.value = '';
+    }
+    
+    document.getElementById('chat-input').addEventListener('keydown', e => { 
+        if(e.key === 'Enter') { e.preventDefault(); sendChat(); } 
+    });
+    
+    function appendChat(s, m, cls = "", target = "global") {
+        const b = document.getElementById(target === 'p2p' ? 'chat-p2p' : 'chat-global');
+        if(!b) return;
+        
+        const div = document.createElement('div');
+        if (cls) div.className = cls;
+
+        const spanName = document.createElement('strong');
+        spanName.textContent = `[${s}]: `;
+        
+        const spanMsg = document.createElement('span');
+        spanMsg.textContent = m; 
+
+        div.appendChild(spanName);
+        div.appendChild(spanMsg);
+        b.appendChild(div);
+        
+        b.scrollTop = b.scrollHeight;
+    }
+
+    function clearChat() { 
+        const b = document.getElementById(currentChatTab === 'p2p' ? 'chat-p2p' : 'chat-global');
+        while (b.firstChild) { b.removeChild(b.firstChild); }
+    }
+
+
+    // =======================================================
+    // 2. MOTORE AUDIO WEB OTTIMIZZATO (Tempo Reale Puro)
+    // =======================================================
+    function initAudioOptimized() {
+        if (!audioCtx) {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext({ 
+                latencyHint: 'interactive',
+                sampleRate: 48000
+            });
+        }
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume().catch(e => console.log("Audio resume:", e));
+        }
+
+        // GHOST OSCILLATOR (DAC KEEP-ALIVE)
+        if (!window.keepAliveOsc) {
+            window.keepAliveOsc = audioCtx.createOscillator();
+            const keepAliveGain = audioCtx.createGain();
+            keepAliveGain.gain.value = 0.0001; 
+            window.keepAliveOsc.connect(keepAliveGain).connect(audioCtx.destination);
+            window.keepAliveOsc.start();
+        }
+
+        if (!preOscLocal) {
+            preOscLocal = audioCtx.createOscillator();
+            preGainLocal = audioCtx.createGain();
+            preOscLocal.connect(preGainLocal).connect(audioCtx.destination);
+            preGainLocal.gain.value = 0;
+            preOscLocal.start();
+        }
+        
+        if (!preOscRemote) {
+            preOscRemote = audioCtx.createOscillator();
+            preGainRemote = audioCtx.createGain();
+            preOscRemote.connect(preGainRemote).connect(audioCtx.destination);
+            preGainRemote.gain.value = 0;
+            preOscRemote.start();
+        }
+    }
+
+    function getFreq(type) {
+        let f = parseInt(document.getElementById('c_freq').value) || 750;
+        if(document.getElementById('c_bitonal').checked) {
+            f = type === 'dot' ? parseInt(document.getElementById('c_f_dot').value) : parseInt(document.getElementById('c_f_dash').value);
+        }
+        return f;
+    }
+
+    function playTone(freq, isLocal = true, isSystem = false) {
+        initAudioOptimized();
+        if (isLocal && isTx) return;
+        
+        const attack = (parseInt(document.getElementById('a_attack').value) || 2) / 1000;
+
+        if (isLocal) {
+            isTx = true;
+            if(!isSystem) document.getElementById('mouse-pad').classList.add('active');
+            
+            preOscLocal.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.0005);
+            let vol = parseFloat(document.getElementById('a_vol').value);
+            
+            preGainLocal.gain.cancelScheduledValues(audioCtx.currentTime);
+            preGainLocal.gain.setValueAtTime(preGainLocal.gain.value, audioCtx.currentTime);
+            preGainLocal.gain.setTargetAtTime(vol, audioCtx.currentTime, attack / 3);
+            
+            if (!isSystem && conn && conn.open) {
+                conn.send({type: 'DN', f: freq, ts: Date.now()});
+            }
+        }
+    }
+
+    function stopTone(isLocal = true, isSystem = false) {
+        const rel = (parseInt(document.getElementById('a_release').value) || 5) / 1000;
+        
+        if (isLocal && isTx) {
+            isTx = false;
+            if(!isSystem) document.getElementById('mouse-pad').classList.remove('active');
+            
+            preGainLocal.gain.cancelScheduledValues(audioCtx.currentTime);
+            preGainLocal.gain.setValueAtTime(preGainLocal.gain.value, audioCtx.currentTime);
+            preGainLocal.gain.setTargetAtTime(0, audioCtx.currentTime, rel / 3);
+            
+            if(!isSystem && conn && conn.open) {
+                conn.send({type: 'UP', ts: Date.now()});
+            }
+        } 
+    }
+
+    function playToneScheduled(freq, scheduleTimeAudioCtx) {
+        initAudioOptimized();
+        rxIsTx = true;
+        const attack = (parseInt(document.getElementById('a_attack').value) || 2) / 1000;
+        let vol = parseFloat(document.getElementById('a_vol_rx').value);
+        if(!document.getElementById('a_rx_enable').checked) vol = 0;
+
+        preOscRemote.frequency.setValueAtTime(freq, scheduleTimeAudioCtx);
+        preGainRemote.gain.cancelScheduledValues(scheduleTimeAudioCtx);
+        preGainRemote.gain.setValueAtTime(0, scheduleTimeAudioCtx);
+        preGainRemote.gain.setTargetAtTime(vol, scheduleTimeAudioCtx, attack / 3);
+
+        const timeToStartMs = Math.max(0, (scheduleTimeAudioCtx - audioCtx.currentTime) * 1000);
+        if (remoteWatchdog) clearTimeout(remoteWatchdog);
+        remoteWatchdog = setTimeout(() => {
+            if(rxIsTx) stopToneScheduled(audioCtx.currentTime);
+        }, timeToStartMs + 1500); 
+    }
+
+    function stopToneScheduled(scheduleTimeAudioCtx) {
+        if(!rxIsTx) return;
+        rxIsTx = false;
+        
+        if (remoteWatchdog) clearTimeout(remoteWatchdog);
+        const rel = (parseInt(document.getElementById('a_release').value) || 5) / 1000;
+        
+        preGainRemote.gain.cancelScheduledValues(scheduleTimeAudioCtx);
+        preGainRemote.gain.setTargetAtTime(0, scheduleTimeAudioCtx, rel / 3);
+    }
+
+    // =======================================================
+    // 3. MOTORE IAMBIC E MANUALE ASSOLUTO (POINTER EVENTS)
+    // =======================================================
+    let dotPressed = false, dashPressed = false, keyerActive = false, lastIambic = null;
+
+    async function runIambicKeyer() {
+        keyerActive = true;
+        while (dotPressed || dashPressed) {
+            const dotTime = parseInt(document.getElementById('c_dot_ms').value);
+            const dashTime = parseInt(document.getElementById('c_dash_ms').value);
+            const spcTime = parseInt(document.getElementById('c_spc_ms').value) || dotTime;
+
+            if (dotPressed && !dashPressed) { await playKeyerElement('dot', dotTime, spcTime); lastIambic = 'dot'; } 
+            else if (dashPressed && !dotPressed) { await playKeyerElement('dash', dashTime, spcTime); lastIambic = 'dash'; } 
+            else if (dotPressed && dashPressed) {
+                if (lastIambic === 'dot') { await playKeyerElement('dash', dashTime, spcTime); lastIambic = 'dash'; } 
+                else { await playKeyerElement('dot', dotTime, spcTime); lastIambic = 'dot'; }
+            }
+            await new Promise(r => setTimeout(r, 1));
+        }
+        keyerActive = false; lastIambic = null;
+    }
+
+    async function playKeyerElement(type, duration, space) {
+        let f = getFreq(type);
+        playTone(f, true);
+        await new Promise(r => setTimeout(r, duration));
+        stopTone(true);
+        await new Promise(r => setTimeout(r, space));
+    }
+
+    function handlePadStart(isRight) {
+        if(document.getElementById('v_input_source').value !== 'manual') return;
+        initAudioOptimized();
+        const mode = document.getElementById('c_mode').value;
+        const type = isRight ? 'dash' : 'dot';
+        
+        if (mode === 'Iambic' || mode === 'Manuale') {
+            if (type === 'dot') dotPressed = true;
+            if (type === 'dash') dashPressed = true;
+            if (!keyerActive) runIambicKeyer();
+        } else { 
+            playTone(getFreq(type), true); 
+        }
+    }
+
+    function handlePadStop() {
+        if(document.getElementById('v_input_source').value !== 'manual') return;
+        const mode = document.getElementById('c_mode').value;
+        
+        if (mode === 'Iambic' || mode === 'Manuale') { 
+            dotPressed = false; dashPressed = false; 
+        } 
+        else { 
+            stopTone(true); 
+        }
+    }
+
+    const pad = document.getElementById('mouse-pad');
+    pad.style.touchAction = 'none';
+
+    pad.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        pad.setPointerCapture(e.pointerId); 
+        const rect = pad.getBoundingClientRect();
+        const isRight = (e.clientX - rect.left) > (rect.width / 2);
+        handlePadStart(e.button === 2 || isRight);
+    });
+
+    pad.addEventListener('pointerup', (e) => {
+        e.preventDefault();
+        pad.releasePointerCapture(e.pointerId);
+        handlePadStop();
+    });
+
+    pad.addEventListener('pointercancel', handlePadStop);
+    pad.addEventListener('contextmenu', e => e.preventDefault()); 
+
+    document.addEventListener('keydown', (e) => {
+        if(document.getElementById('v_input_source').value !== 'manual') return;
+        if(document.activeElement.tagName === 'INPUT' && !['k_dot', 'k_dash'].includes(document.activeElement.id)) return;
+        if(e.repeat) return; 
+
+        const kDotCode = document.getElementById('k_dot').value;
+        const kDashCode = document.getElementById('k_dash').value;
+        const mode = document.getElementById('c_mode').value;
+        
+        if(e.code === kDotCode || e.code === kDashCode) {
+            e.preventDefault(); 
+            initAudioOptimized();
+            
+            if (mode === 'Iambic' || mode === 'Manuale') {
+                if (e.code === kDotCode) dotPressed = true;
+                if (e.code === kDashCode) dashPressed = true;
+                if (!keyerActive) runIambicKeyer();
+            } else { 
+                playTone(getFreq(e.code === kDotCode ? 'dot' : 'dash'), true); 
+            }
+        }
+    });
+    
+    document.addEventListener('keyup', (e) => {
+        if(document.getElementById('v_input_source').value !== 'manual') return;
+        
+        const kDotCode = document.getElementById('k_dot').value;
+        const kDashCode = document.getElementById('k_dash').value;
+        const mode = document.getElementById('c_mode').value;
+        
+        if(e.code === kDotCode || e.code === kDashCode) {
+            e.preventDefault();
+            if (mode === 'Iambic' || mode === 'Manuale') {
+                if (e.code === kDotCode) dotPressed = false;
+                if (e.code === kDashCode) dashPressed = false;
+            } else { 
+                stopTone(true); 
+            }
+        }
+    });
+
+    // =======================================================
+    // 4. RETE P2P WEBRTC (PeerJS) 
+    // =======================================================
+    function setStatus(msg, color) {
+        const bar = document.getElementById('status-bar');
+        bar.textContent = "⚪ " + msg;
+        bar.style.color = color;
+    }
+
+    function connectP2P() {
+        const user = document.getElementById('n_user').value.trim();
+        const room = document.getElementById('n_room').value.trim().toLowerCase();
+        const pass = document.getElementById('n_pass').value.trim();
+
+        if(!room || !pass || !user) return alert("Inserisci Nome, Stanza e Password!");
+        
+        initAudioOptimized();
+        setStatus("Ricerca Stanza...", "#f39c12");
+        document.getElementById('btn-net-connect').style.display = 'none';
+        document.getElementById('btn-net-disconnect').style.display = 'block';
+
+        peer = new Peer({ config: { 'iceServers': [{ urls: 'stun:stun.l.google.com:19302' }] } }); 
+
+        peer.on('open', (myId) => {
+            const ref = db.ref('rooms/' + room);
+            ref.once('value', (snap) => {
+                const data = snap.val();
+                if (data && data.hostId) {
+                    if (data.password !== pass) { 
+                        alert("Accesso negato: Password errata!"); 
+                        disconnectP2P(); 
+                        return; 
+                    }
+                    setStatus("Password OK! Stabilendo P2P...", "#3498db");
+                    const call = peer.connect(data.hostId, { metadata: { user: user }, reliable: false });
+                    setupDataChannel(call, user, true);
+                } else {
+                    ref.set({ hostId: myId, hostName: user, password: pass });
+                    setStatus(`In attesa in '${room}'...`, "#f1c40f");
+                    peer.on('connection', (incoming) => setupDataChannel(incoming, user, false));
+                }
+            });
+        });
+
+        peer.on('error', (err) => {
+            setStatus("Errore P2P: " + err.type, "#e74c3c");
+            disconnectP2P();
+        });
+    }
+
+    document.getElementById('n_pass').addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); connectP2P(); }
+    });
+
+    function setupDataChannel(c, myUser, isJoiner) {
+        conn = c;
+        conn.on('open', () => {
+            setStatus("CONNESSO P2P DIRETTO!", "#2ecc71");
+            
+            document.getElementById('p2p-status').textContent = '🟢';
+            switchChat('p2p');
+            appendChat("SISTEMA", "Sei connesso P2P con il partner. Comunicazione CW attiva.", "chat-sys", "p2p");
+            
+            if(isJoiner) {
+                const room = document.getElementById('n_room').value.trim().toLowerCase();
+                db.ref('rooms/' + room).remove(); 
+            }
+
+            conn.send({ type: 'PING', ts: Date.now() });
+            syncInterval = setInterval(() => {
+                if (conn && conn.open) conn.send({ type: 'PING', ts: Date.now() });
+            }, 5000);
+        });
+        
+        conn.on('data', (d) => {
+            if (d.type === 'CHAT') {
+                appendChat(d.from || "Partner", d.msg, "chat-p2p", "p2p");
+            }
+            else if (d.type === 'PING') {
+                conn.send({ type: 'PONG', origTs: d.ts, remoteTs: Date.now() });
+            }
+            else if (d.type === 'PONG') {
+                const rtt = Date.now() - d.origTs;
+                timeOffset = Date.now() - (d.remoteTs + (rtt / 2));
+            }
+            else if (d.type === 'DN') {
+                if (!d.ts) { playTone(d.f, false); return; } 
+
+                const targetTimeMs = d.ts + timeOffset + PLAYBACK_DELAY;
+                const safeDelaySec = Math.max(0.01, (targetTimeMs - Date.now()) / 1000);
+                playToneScheduled(d.f, audioCtx.currentTime + safeDelaySec);
+            }
+            else if (d.type === 'UP') {
+                if (!d.ts) { stopTone(false); return; } 
+
+                const targetTimeMs = d.ts + timeOffset + PLAYBACK_DELAY;
+                const safeDelaySec = Math.max(0.01, (targetTimeMs - Date.now()) / 1000);
+                stopToneScheduled(audioCtx.currentTime + safeDelaySec);
+            }
+        });
+        
+        conn.on('close', () => { 
+            alert("Il partner ha chiuso il collegamento."); 
+            disconnectP2P(); 
+        });
+    }
+
+    function disconnectP2P() {
+        const room = document.getElementById('n_room').value.trim().toLowerCase();
+        if(room) db.ref('rooms/' + room).remove();
+        
+        if(syncInterval) clearInterval(syncInterval);
+        if(conn) { conn.close(); conn = null; }
+        if(peer) { peer.destroy(); peer = null; }
+        
+        stopTone(true);
+        if(rxIsTx) stopToneScheduled(audioCtx ? audioCtx.currentTime : 0);
+        
+        setStatus("In attesa...", "#f1c40f");
+        document.getElementById('btn-net-connect').style.display = 'block';
+        document.getElementById('btn-net-disconnect').style.display = 'none';
+        document.getElementById('p2p-status').textContent = '🔴';
+        switchChat('global');
+    }
+
+    // =======================================================
+    // 5. GENERATORE AUTOMATICO E SISTEMA NOTIFICHE CW
+    // =======================================================
+    const textQueue = [];
+    let isPlayingAuto = false;
+    
+    document.getElementById('txt-live').addEventListener('input', (e) => {
+        if(document.getElementById('v_input_source').value !== 'auto') return;
+        const char = e.data ? e.data.toUpperCase() : '';
+        if(MORSE_CODE[char] || char === ' ') {
+            textQueue.push(char);
+            if(!isPlayingAuto) processAutoQueue();
+        }
+    });
+
+    async function processAutoQueue() {
+        isPlayingAuto = true;
+        initAudioOptimized();
+        while(textQueue.length > 0) {
+            const c = textQueue.shift();
+            const dot = parseInt(document.getElementById('c_dot_ms').value);
+            const dash = parseInt(document.getElementById('c_dash_ms').value);
+            const spc = parseInt(document.getElementById('c_spc_ms').value);
+            
+            if(c === ' ') { await new Promise(r => setTimeout(r, dot * 7)); continue; }
+            const syms = MORSE_CODE[c];
+            if(!syms) continue;
+            
+            for(let s of syms) {
+                const type = s === '.' ? 'dot' : 'dash';
+                const duration = type === 'dot' ? dot : dash;
+                let f = getFreq(type);
+                
+                playTone(f, true);
+                await new Promise(r => setTimeout(r, duration));
+                stopTone(true);
+                
+                await new Promise(r => setTimeout(r, spc)); 
+            }
+            await new Promise(r => setTimeout(r, dot * 2)); 
+        }
+        isPlayingAuto = false;
+    }
+
+    const systemQueue = [];
+    let isPlayingSystem = false;
+
+    function playSystemCW(text) {
+        if (!document.getElementById('a_rx_enable').checked || !document.getElementById('a_sys_sounds').checked) return;
+        for(let c of text.toUpperCase()) {
+            if(MORSE_CODE[c] || c === ' ') systemQueue.push(c);
+        }
+        if(!isPlayingSystem) processSystemQueue();
+    }
+
+    async function processSystemQueue() {
+        isPlayingSystem = true;
+        initAudioOptimized();
+        while(systemQueue.length > 0) {
+            const c = systemQueue.shift();
+            const dot = parseInt(document.getElementById('c_dot_ms').value);
+            const dash = parseInt(document.getElementById('c_dash_ms').value);
+            const spc = parseInt(document.getElementById('c_spc_ms').value);
+            
+            if(c === ' ') { await new Promise(r => setTimeout(r, dot * 7)); continue; }
+            const syms = MORSE_CODE[c];
+            if(!syms) continue;
+            
+            for(let s of syms) {
+                const type = s === '.' ? 'dot' : 'dash';
+                playTone(getFreq(type), true, true); 
+                await new Promise(r => setTimeout(r, type === 'dot' ? dot : dash));
+                stopTone(true, true);
+                await new Promise(r => setTimeout(r, spc)); 
+            }
+            await new Promise(r => setTimeout(r, dot * 2)); 
+        }
+        isPlayingSystem = false;
+    }
+
+    // =======================================================
+    // 5.5 AUTOCONFIGURAZIONE ARDUINO (Multi-Scheda)
+    // =======================================================
+    
+    // Incolla il testo del file .hex per Arduino Leonardo o Micro
+    const firmwareHexLeonardo = `
+INSERISCI_QUI_IL_TUO_TESTO_HEX_DEL_LEONARDO
+    `;
+
+    // Incolla il testo del file .hex per Arduino Uno
+    const firmwareHexUno = `
+INSERISCI_QUI_IL_TUO_TESTO_HEX_DELL_UNO
+    `;
+
+    // Incolla il testo del file .hex per Arduino Nano (Bootloader Vecchio)
+    const firmwareHexNanoOld = `
+:100000000C9469000C9491000C9491000C94910054
+:100010000C9491000C9491000C9491000C949D050B
+:100020000C9491000C9491000C9491000C9491000C
+:100030000C9491000C9491000C9491000C949100FC
+:100040000C9453050C9491000C941F060C94F90524
+:100050000C9491000C9491000C9491000C949100DC
+:100060000C9491000C9491006364696E6F707375C9
+:1000700078585B0000000000240027002A000000E0
+:1000800000002300260029000000000800020100F3
+:100090000003040700000000000000000102040843
+:1000A00010204080010204081020010204081020E2
+:1000B00000000000250028002B00040404040404B0
+:1000C0000404020202020202030303030303020008
+:1000D000450811241FBECFEFD8E0DEBFCDBF21E021
+:1000E000ACE3B1E001C01D92AA3FB207E1F711E015
+:1000F000A0E0B1E0ECE0FCE102C005900D92AC3371
+:10010000B107D9F710E0C9E6D0E004C02197FE019D
+:100110000E94F608C836D107C9F70E9451060C9410
+:10012000040E0C940000833081F028F4813099F0A3
+:100130008230A9F008958730A9F08830C9F0843062
+:10014000B1F4809180008F7D03C0809180008F7713
+:1001500080938000089584B58F7784BD089584B519
+:100160008F7DFBCF8091B0008F778093B000089592
+:100170008091B0008F7DF9CFCF93DF93282F30E0AF
+:10018000F901E857FF4F8491F901E456FF4FD491EC
+:10019000F901E654FF4FC491CC23A1F081110E94D4
+:1001A0009300EC2FF0E0EE0FFF1FE258FF4FA591F8
+:1001B000B491EC91ED2381E090E009F480E0DF91CF
+:1001C000CF91089580E090E0FACFCF93DF9390E055
+:1001D000FC01E456FF4F249186549F4FFC0184910B
+:1001E0008823D1F090E0880F991FFC01EC58FF4F55
+:1001F000A591B491FC01E055FF4FC591D4916230B7
+:1002000071F49FB7F8943C91822F809583238C934F
+:10021000E8812E2B28839FBFDF91CF9108958FB760
+:10022000F894EC912E2B2C938FBFF6CF8F929F9248
+:10023000AF92BF92CF92DF92EF92FF92CF936C0179
+:1002400080910B01853069F08F3F09F470C0CF9128
+:10025000FF90EF90DF90CF90BF90AF909F908F90E6
+:100260000895EEECF0E0C491C7FDF1CF61E085E0C8
+:100270000E94E500CC2319F0C23009F022C1F12C14
+:10028000E12C60E072E18AE790E0A70196010E940C
+:10029000B50849015A01DA01C9010197A109B1095B
+:1002A0008F3F9105A105B10509F00CF4EEC060E4A3
+:1002B00072E48FE090E0A70196010E94B5082150FA
+:1002C000310941095109C23009F0A0C082E02F3F35
+:1002D00031054105510509F00CF488C160E970ED64
+:1002E00083E090E0A70196010E94B50821503109F2
+:1002F0004109510983E02F3F31054105510509F0BE
+:100300000CF474C168E478EE81E090E0A7019601F6
+:100310000E94B50821503109410951092F3F31058B
+:100320004105510511F00CF08FC084E05FC185E0FC
+:1003300080930B01EEECF0E0C491CF3F09F487CF3E
+:10034000C13021F150F0C23009F43EC0C7FD7FCF6B
+:1003500061E085E00E94E5008FCF14BC15BC84B538
+:10036000826084BD85B5816085BDEFEBF0E0E491EE
+:10037000F0E0EE0FFF1FE055FF4F85919491E1EA09
+:10038000F0E0E491E093E901C0E070CF10928000CA
+:10039000109281008091810088608093810080911B
+:1003A0008100816080938100EFEBF0E0E491F0E068
+:1003B000EE0FFF1FE055FF4F85919491E1EAF0E0C9
+:1003C000E491E093E80152CF1092B0001092B10096
+:1003D0008091B00082608093B0008091B100816014
+:1003E0008093B100EFEBF0E0E491F0E0EE0FFF1F3F
+:1003F000E055FF4F859194919093E7018093E6013A
+:10040000E1EAF0E0E491E093E50130CF2F3F3105E0
+:100410004105510509F00CF452C068E478EE81E022
+:1004200090E0A70196010E94B508215031094109C9
+:100430005109CC2309F4AFC02F3F310541055105C7
+:1004400011F00CF0B0C071CF64E274EF80E090E086
+:10045000A70196010E94B5082150310941095109AF
+:1004600085E02F3F31054105510509F008F4BEC074
+:1004700062E17AE780E090E0A70196010E94B5086A
+:1004800021503109410951099CC09C0181E0C111F1
+:10049000ADC095B5987F892B85BD27BD8FEF9FEFA8
+:1004A000DC018093F2019093F301A093F401B093E7
+:1004B000F50180916E00826080936E00C8CE82E06C
+:1004C000E6CFF12CE12C60E072E18AE790E0A70131
+:1004D00096010E94B508215031094109510991E066
+:1004E0002115310581E0480751056CF068E478EE8C
+:1004F00081E090E0A70196010E94B50821503109E2
+:100500004109510993E0C13009F076C08091810022
+:10051000887F892B80938100309389002093880005
+:100520008FEF9FEFDC018093EE019093EF01A0939A
+:10053000F001B093F10180916F00826080936F00B1
+:1005400086CE2093B3008FEF9FEFDC018093EA010A
+:100550009093EB01A093EC01B093ED0180917000BA
+:1005600082608093700073CE84E02F3F3105410597
+:10057000510509F008F48DCF9AE0B594A7949794AB
+:1005800087949A95D1F7A501940121503109410929
+:10059000510985E07ECF83E02F3F310541055105AC
+:1005A00009F00CF476CF62E17AE780E090E0A701F1
+:1005B00096010E94B5082150310941095109CC2307
+:1005C00099F286E02F3F31054105510579F070F031
+:1005D0008AE0B594A794979487948A95D1F7A5015A
+:1005E0009401215031094109510987E09091B100EE
+:1005F000987F892B8093B100C13009F48DCFC23030
+:1006000009F49FCFC11123CE48CF3FB7F894809112
+:10061000400190914101A0914201B091430126B562
+:10062000A89B05C02F3F19F00196A11DB11D3FBF2A
+:10063000BA2FA92F982F8827BC01CD01620F711DF9
+:10064000811D911D42E0660F771F881F991F4A95F3
+:10065000D1F708958F929F92AF92BF92CF92DF927F
+:10066000EF92FF926B017C010E9405034B015C013C
+:10067000C114D104E104F104B9F00E940503681922
+:1006800079098A099B09683E73408105910580F3C9
+:1006900021E0C21AD108E108F10888EE880E83E053
+:1006A000981EA11CB11CE4CFFF90EF90DF90CF907B
+:1006B000BF90AF909F908F900895CF93DF939091CC
+:1006C0000B0189130BC0EEECF0E0E4919FEF9093E7
+:1006D0000B01E13059F138F1E23071F1282F30E0AF
+:1006E000F901E857FF4F8491F901E456FF4FD49187
+:1006F000F901E654FF4FC491CC2391F081110E947F
+:100700009300EC2FF0E0EE0FFF1FE055FF4FA59197
+:10071000B4918FB7F894EC91D095DE23DC938FBF22
+:10072000DF91CF91089510926E00D8CF90916F0015
+:100730009D7F90936F00D2CF909170009D7F90939A
+:10074000700091E09093B0009091B100987F946018
+:100750009093B1001092B300C1CFAF92BF92CF92ED
+:10076000DF92EF92FF920F931F93CF93DF936C0171
+:100770007B018B01040F151FEB015E01AE18BF0852
+:10078000C017D10759F06991D601ED91FC91019004
+:10079000F081E02DC6010995892B79F7C501DF911C
+:1007A000CF911F910F91FF90EF90DF90CF90BF906E
+:1007B000AF900895FC01538D448D252F30E0842F98
+:1007C00090E0821B930B541710F0CF960895019779
+:1007D0000895FC01918D828D981761F0A28DAE0F66
+:1007E000BF2FB11D5D968C91928D9F5F9F73928FED
+:1007F00090E008958FEF9FEF08952FB7F8948091C0
+:10080000440190914501A0914601B09147012FBF4D
+:100810008093500190935101A0935201B0935301E2
+:1008200088E491E00E94E90397FF26C02FB7F8946F
+:100830008091440190914501A0914601B0914701FA
+:100840002FBF409150015091510160915201709120
+:100850005301841B950BA60BB70B40914C01509193
+:100860004D0160914E0170914F0184179507A607C5
+:10087000B707B0F28FEF9FEF0895FC01918D828D45
+:10088000981731F0828DE80FF11D858D90E0089565
+:100890008FEF9FEF0895FC01918D228D892F90E0BD
+:1008A000805C9F4F821B91098F739927089588E47C
+:1008B00091E00E944B0421E0892B09F420E0822F73
+:1008C000089580E090E0892B29F00E94570481115F
+:1008D0000C9400000895FC01A48DA80FB92FB11D40
+:1008E000A35ABF4F2C91848D90E001968F73992766
+:1008F000848FA689B7892C93A089B1898C91837044
+:1009000080648C93938D848D981306C00288F3893C
+:10091000E02D80818F7D80830895EF92FF920F9369
+:100920001F93CF93DF93EC0181E0888F9B8D8C8D9B
+:1009300098131AC0E889F989808185FF15C09FB78F
+:10094000F894EE89FF896083E889F9898081837052
+:10095000806480839FBF81E090E0DF91CF911F9101
+:100960000F91FF90EF900895F62E0B8D10E00F5F22
+:100970001F4F0F731127E02E8C8D8E110CC00FB6F8
+:1009800007FCFACFE889F989808185FFF5CFCE0190
+:100990000E946B04F1CFEB8DEC0FFD2FF11DE35A9C
+:1009A000FF4FF0829FB7F8940B8FEA89FB89808113
+:1009B0008062CFCFCF93DF93EC01888D8823B9F08D
+:1009C000AA89BB89E889F9898C9185FD03C080815A
+:1009D00086FD0DC00FB607FCF7CF8C9185FFF2CFD7
+:1009E000808185FFEDCFCE010E946B04E9CFDF91BE
+:1009F000CF9108951F93CF93DF93EC01162FCA0177
+:100A00001816190614F40E94160161E01E3209F04E
+:100A100062E088E491E00E948D04BE01DD0F880B46
+:100A2000990B0E942A0385E00E945D0360E088E440
+:100A300091E00E948D046091050170910601072EDE
+:100A4000000C880B990B0E942A0310930001DF9180
+:100A5000CF911F9108950F931F93CF93DF93EC01D4
+:100A600088819981009759F02A813B8126173707A1
+:100A700030F081E0DF91CF911F910F9108958B01AC
+:100A80006F5F7F4F0E94210A009759F099838883F6
+:100A90001B830A832C813D81232B59F7FC01108293
+:100AA000E8CF80E0E7CF1F920F920FB60F9211248C
+:100AB0002F933F938F939F93AF93BF938091440164
+:100AC00090914501A0914601B091470130913F01BD
+:100AD00023E0230F2D3758F50196A11DB11D20935A
+:100AE0003F018093440190934501A0934601B09348
+:100AF00047018091400190914101A0914201B09144
+:100B000043010196A11DB11D8093400190934101C5
+:100B1000A0934201B0934301BF91AF919F918F91F8
+:100B20003F912F910F900FBE0F901F90189526E8C0
+:100B3000230F0296A11DB11DD2CF1F920F920FB6A7
+:100B40000F9211242F933F934F935F936F937F9353
+:100B50008F939F93AF93BF93EF93FF938091EA019D
+:100B60009091EB01A091EC01B091ED01892B8A2BC2
+:100B70008B2BD1F19091E501E091E601F091E70135
+:100B80008081892780838091EA019091EB01A09177
+:100B9000EC01B091ED01181619061A061B069CF41B
+:100BA0008091EA019091EB01A091EC01B091ED01EF
+:100BB0000197A109B1098093EA019093EB01A093F9
+:100BC000EC01B093ED01FF91EF91BF91AF919F9137
+:100BD0008F917F916F915F914F913F912F910F90E6
+:100BE0000FBE0F901F90189580910B010E945D031E
+:100BF000EACF1F920F920FB60F9211242F933F93BB
+:100C00004F935F936F937F938F939F93AF93BF9314
+:100C1000EF93FF9388E491E00E946B04FF91EF91C2
+:100C2000BF91AF919F918F917F916F915F914F9104
+:100C30003F912F910F900FBE0F901F9018951F920C
+:100C40000F920FB60F9211242F938F939F93EF93D0
+:100C5000FF93E0915801F09159018081E0915E018C
+:100C6000F0915F0182FD1BC09081809161018F5FD7
+:100C70008F7320916201821741F0E0916101F0E0F1
+:100C8000E85BFE4F958F80936101FF91EF919F91FB
+:100C90008F912F910F900FBE0F901F90189580810C
+:100CA000F4CFCF93DF93CDB7DEB766970FB6F89446
+:100CB000DEBF0FBECDBF789484B5826084BD84B59D
+:100CC000816084BD85B5826085BD85B5816085BD47
+:100CD00080916E00816080936E00109281008091FF
+:100CE0008100826080938100809181008160809387
+:100CF0008100809180008160809380008091B100AC
+:100D000084608093B1008091B00081608093B000D6
+:100D100080917A00846080937A0080917A0082606A
+:100D200080937A0080917A00816080937A0080912C
+:100D30007A00806880937A001092C100E091580197
+:100D4000F091590182E08083E0915401F0915501C6
+:100D50001082E0915601F091570183E08083109258
+:100D60006001E0915C01F0915D0186E08083E0919B
+:100D70005A01F0915B01808180618083E0915A018A
+:100D8000F0915B01808188608083E0915A01F0914D
+:100D90005B01808180688083E0915A01F0915B0162
+:100DA00080818F7D808362E082E00E94E50062E0C6
+:100DB00083E00E94E50061E085E00E94E50085E0B7
+:100DC0000E945D039E012F5F3F4F79014E013DE080
+:100DD000830E911C2E018FE0480E511C3E0191E1C3
+:100DE000690E711C6E0123E1C20ED11C5E0135E15A
+:100DF000A30EB11C80E2282E88E491E00E944B04EF
+:100E0000181619060CF0C7C018861F821A86198694
+:100E10001C861B8670E060E0CE0107960E942B05C1
+:100E20002F81388581112CC02115310519F0C90198
+:100E30000E94980918861F821C861B861A861986AE
+:100E40000E94FD0397FD24C08A30910509F1898332
+:100E50001A820B851C850F5F1F4FB801CE010796C4
+:100E60000E942B05882361F32F8138858B859C8513
+:100E7000B701820F931F0E94E70A1C870B87E0CF00
+:100E80001C861B8666E271E0C9010E94E70AD8CF82
+:100E90001A8219821C821B821E821D8262E070E00F
+:100EA000C7010E942B0529813A818111A2C0211519
+:100EB000310519F0C9010E9498091A8219821E820F
+:100EC0001D821C821B824D815E8109811A818B8566
+:100ED0009C858417950708F4C9C08F819885009771
+:100EE00009F4C4C00115110509F44FC0B8010E94EE
+:100EF000EE0A33243394892B09F0312CC8010E9467
+:100F00009809332009F441C0FF92EF929F928F928B
+:100F10005F924F927F926F92DF92CF92BF92AF9289
+:100F200087E291E09F938F9388858F938F818F9332
+:100F30000E94FC0A0FB6F894DEBF0FBECDBF069725
+:100F400021F58D899E8990930A01809309018B89EF
+:100F50009C89909308018093070189899A899093CD
+:100F60000601809305018F859889909304018093F1
+:100F700003018D859E8590930201809301018981F3
+:100F80009A8190933E0180933D018F8198850097CF
+:100F900011F00E94980983E00E94BC008C0182E05D
+:100FA0000E94BC009C0180913D0190913E01892BE3
+:100FB000C9F5012B91F5232B31F5809100018E327B
+:100FC00011F540910101509102016DE280910701FC
+:100FD000909108010E94FA0480E090E0892B09F4C6
+:100FE0000BCF0E945704882309F404CF0E9400000D
+:100FF00001CF82E090E09E838D8364E271E0C901BD
+:101000000E94E70A60CF40910301509104016EE213
+:101010008091090190910A01DDCF232B91F220925A
+:101020000001DACF90913C01012B79F0232B19F1CB
+:10103000992391F285E00E945D0360E088E491E0ED
+:101040000E948D0410923C01C7CF9111C5CF8091B1
+:101050000301909104010E94160161E088E491E08F
+:101060000E948D0431E030933C01B6CF011511058B
+:1010700009F48BCF42CF9111AFCF809103019091B2
+:1010800004010E94160162E0E9CFE8E4F1E0138276
+:10109000128288EE93E0A0E0B0E084839583A6837B
+:1010A000B78386E191E09183808385EC90E095871A
+:1010B000848784EC90E09787868780EC90E0918B22
+:1010C000808B81EC90E0938B828B82EC90E0958B0F
+:1010D000848B86EC90E0978B868B118E128E138E0C
+:1010E000148E089591110C947B08803219F0895068
+:1010F0008550C8F708959927882708952F923F9221
+:101100004F925F926F927F928F929F92AF92BF9217
+:10111000CF92DF92EF92FF920F931F93CF93DF93C3
+:10112000CDB7DEB7CA1BDB0B0FB6F894DEBF0FBE20
+:10113000CDBF09942A88398848885F846E847D846D
+:101140008C849B84AA84B984C884DF80EE80FD806F
+:101150000C811B81AA81B981CE0FD11D0FB6F894E5
+:10116000DEBF0FBECDBFED010895052E97FB1EF427
+:1011700000940E94CC0857FD07D00E94D40807FCB9
+:1011800003D04EF40C94CC085095409530952195A1
+:101190003F4F4F4F5F4F08959095809570956195A3
+:1011A0007F4F8F4F9F4F0895A1E21A2EAA1BBB1BA2
+:1011B000FD010DC0AA1FBB1FEE1FFF1FA217B30723
+:1011C000E407F50720F0A21BB30BE40BF50B661F39
+:1011D000771F881F991F1A9469F7609570958095FD
+:1011E00090959B01AC01BD01CF010895EE0FFF1F4B
+:1011F0000590F491E02D09940F931F93CF93DF9303
+:101200008230910510F482E090E0E091F801F091D5
+:10121000F90130E020E0B0E0A0E0309799F421152A
+:10122000310509F44AC0281B390B24303105D8F5A3
+:101230008A819B816115710589F1FB01938382830A
+:10124000FE0111C040815181028113814817590765
+:10125000E0F04817590799F4109761F012960C9333
+:10126000129713961C933296CF01DF91CF911F9165
+:101270000F9108950093F8011093F901F4CF21150F
+:10128000310551F04217530738F0A901DB019A01EB
+:10129000BD01DF01F801C1CFEF01F9CF9093F90152
+:1012A0008093F801CDCFFE01E20FF31F819391935C
+:1012B0002250310939832883D7CF2091F60130910C
+:1012C000F701232B41F420910E0130910F0130934F
+:1012D000F7012093F60120910C0130910D012115A9
+:1012E000310541F42DB73EB74091100150911101E5
+:1012F000241B350BE091F601F091F701E217F3079B
+:10130000A0F42E1B3F0B2817390778F0AC014E5F75
+:101310005F4F2417350748F04E0F5F1F5093F701BA
+:101320004093F601819391939FCFF0E0E0E09CCF52
+:10133000CF93DF930097E9F0FC013297138212827A
+:10134000A091F801B091F901ED0130E020E0109793
+:10135000A1F420813181820F931F2091F6013091F9
+:10136000F7012817390709F061C0F093F701E093FE
+:10137000F601DF91CF910895EA01CE17DF07E8F576
+:101380004A815B819E0141155105B1F7E901FB835B
+:10139000EA8349915991C40FD51FEC17FD0761F4F9
+:1013A000808191810296840F951FE901998388833A
+:1013B000828193819B838A83F0E0E0E012968D9195
+:1013C0009C9113970097B9F52D913C911197CD0100
+:1013D0000296820F931F2091F6013091F701281792
+:1013E000390739F6309751F51092F9011092F8014A
+:1013F000B093F701A093F601BCCFD383C2834081A1
+:101400005181840F951FC817D90761F44E5F5F4F54
+:1014100088819981480F591F518340838A819B811C
+:10142000938382832115310509F0B0CFF093F90140
+:10143000E093F8019ECFFD01DC01C0CF1382128240
+:10144000D7CFB0E0A0E0E7E2FAE00C9480088C018E
+:10145000009751F4CB010E94FC088C01C801CDB764
+:10146000DEB7E0E10C949C08FC01E60FF71F9C013D
+:1014700022503109E217F30708F49DC0D901CD913C
+:10148000DC911197C617D70798F0C530D10530F316
+:10149000CE0104978617970708F3C61BD70B229730
+:1014A000C193D1936D937C93CF010E949809D6CFBD
+:1014B0005B01AC1ABD0A4C018C0E9D1EA091F80177
+:1014C000B091F901512C412CF12CE12C109731F500
+:1014D0008091F6019091F7018815990509F05CC09B
+:1014E0004616570608F058C080910C0190910D01E6
+:1014F000009741F48DB79EB74091100150911101B2
+:10150000841B950BE817F90708F055C0F093F70115
+:10151000E093F601F90171836083A0CF8D919C91D6
+:10152000119712966C90129713967C901397A815AA
+:10153000B90559F56C0142E0C40ED11CCA14DB0494
+:1015400020F1AC014A195B09DA011296159780F077
+:101550006282738251834083D9016D937C93E1143D
+:10156000F10471F0D7011396FC93EE93129776CFA6
+:1015700022968C0F9D1FF90191838083F301EFCF99
+:10158000F093F901E093F80169CF4816590608F481
+:101590002C017D01D3019ACFCB010E94FC087C0174
+:1015A000009749F0AE01B8010E94DE0AC8010E940E
+:1015B0009809870153CF10E000E050CFFB01DC0118
+:1015C00002C001900D9241505040D8F70895FB01A0
+:1015D000DC0101900D920020E1F70895FB01DC0190
+:1015E0004150504030F08D910190801919F4002045
+:1015F000B9F7881B990B0895AEE0B0E0E2E0FBE09C
+:101600000C948E0885E08C838B899C899A838983CE
+:10161000AE01495E5F4F6D897E89CE0101960E94C1
+:10162000A00C2E96E2E00C94AA0820FD09C0FC0153
+:1016300023FD05C022FF02C0738362835183408370
+:10164000089544FD17C046FD1DC0DB01FC01AA0F33
+:10165000BB1FEE1FFF1F1094D1F76A0F7B1F8E1F59
+:101660009F1F660F771F881F991F620F711D811DB5
+:10167000911D089533E0660F771F881F991F315021
+:10168000D1F7F3CF34E0F7CF0F931F93CF93DF93CE
+:101690008C01C8010E94B00DEC0197FD08C00E94AA
+:1016A0007208892BB1F7B801CE010E94EC0DCE0172
+:1016B000DF91CF911F910F9108958F929F92AF92DA
+:1016C000BF92EF92FF920F931F93CF93DF938C0102
+:1016D000D62F7A01B22E0E94B00D9C0133272B32F7
+:1016E000310529F02D323105A9F46894B7F8D150AD
+:1016F00061F480E0DF91CF911F910F91FF90EF9007
+:10170000BF90AF909F908F900895C8010E94B00D38
+:1017100097FDEFCFCB2DCD7F2B2D2073F9F48033A8
+:10172000E9F4AA24AA94AD0E89F0C8010E94B00D74
+:1017300097FD0CC0282F2F7D283561F4C264D2504C
+:1017400029F0C8010E94B00D97FF08C0812C912C90
+:1017500054011BC0B6FE2BC0C260DA2D812C912C27
+:10176000540120ED280F283028F1C4FD09C02A308B
+:1017700008F1C6FF05C02F7D3FEE320F3630C8F0AE
+:10178000B8010E94EC0DC1FFB4CFC7FF08C0B094F0
+:10179000A09490948094811C911CA11CB11C2C2FAE
+:1017A000B501A401C7010E94150B81E0A3CFC2615E
+:1017B000D4CF27504C2FC501B4010E94210B4B01FF
+:1017C0005C01C260D15009F3C8010E94B00D97FFBF
+:1017D000C8CFD9CFA0E2B0E0E0EFFBE00C948308E3
+:1017E0005C01962E7A01CE0101966C0180E2F60131
+:1017F00011928A95E9F7F501B381890130E020E083
+:10180000712C812CA0E041E050E0F801B3FD8591FE
+:10181000B3FF8191982F8F01811107C010E000E084
+:10182000C801A096EDE00C949F088E3519F421159F
+:10183000310541F1A21713064CF48D3549F18D3273
+:1018400029F4811006C0882483941DC0882009F4DF
+:1018500064C0E92FE695E695E695EC0DFD2DF11DAA
+:10186000892F8770BA0101C0660F8A95EAF78081D7
+:10187000682B6083791651F0971510F49F5FE9CFBC
+:101880009150E7CFA1E02F5F3F4FBFCF812CFBCF1F
+:10189000882019F08E8180628E83AA2359F0F60188
+:1018A0009E012F5D3F4F8081809580833196E217A6
+:1018B000F307C9F788248394C5010E94B00D97FDF2
+:1018C00016C0E82FE695E695E695EC0DFD2DF11D89
+:1018D000208130E0AC014770552702C0359527952F
+:1018E0004A95E2F720FD06C0B5010E94EC0D882064
+:1018F00069F094CFE114F10429F0F7018083C70166
+:1019000001967C019A94812C9110D6CFE114F104B8
+:1019100009F486CFF701108283CFE82FE695E6958C
+:10192000E695EC0DFD2DF11D982F9770BA0101C0C1
+:10193000660F9A95EAF79081692B6083782EA3CF82
+:10194000B0E0A0E0E6EAFCE00C9481086C01EB0159
+:101950005A01FC0117821682512CF601E380FE0128
+:10196000E3FC8591E3FE8191182FEF018823E9F0D4
+:1019700090E00E947208892B21F0C6010E94440B5E
+:10198000ECCF153241F4FE01E3FC1591E3FE119119
+:10199000EF01153269F4C6010E94B00D97FD8EC0AB
+:1019A0001817D9F2B6010E94EC0D852D90E08AC07F
+:1019B00000E01A3231F4E3FC1591E3FE1191EF01DE
+:1019C00001E0F12C20ED210F2A3048F101FF37C052
+:1019D000FF2059F31836B1F11C3609F43DC011232C
+:1019E00021F3612F70E088E690E00E94A50D892B1D
+:1019F000E1F2912C812C00FD06C0F50180809180E0
+:101A0000C50102965C011E3679F5F60146815781C3
+:101A100070E060E0202FC4010E94150B9ECF026091
+:101A20006F2D70E090E080E040E20E94210BF62EE6
+:101A3000FE01E3FC1591E3FE1191EF01C3CFFF24FA
+:101A4000FA94C8CFFE01E3FC1591E3FE1191EF017A
+:101A5000183609F0C4CF08600460FE01E3FC15915C
+:101A6000E3FE1191EF01BBCF1336C1F401FD02C0BB
+:101A7000FF24F394C6010E94B00D97FD1FC081148E
+:101A8000910429F0F4018083C40101964C01FA9479
+:101A9000F110F0CF00FD61CF53945FCF1B35B9F447
+:101AA0009E01A4016F2DC6010E94EA0BEC01892B57
+:101AB00089F7F6018381807309F477CF8FEF9FEF69
+:101AC000511073CFCDB7DEB7EFE00C949D08C6017F
+:101AD0000E94440B97FDF2CF1F36A9F130F4143663
+:101AE00041F0193639F0006405C01337B9F01537E5
+:101AF000D1F70062202FA4016F2DC6010E945D0B5B
+:101B00008111C8CFD6CF8114910429F0F4016082ED
+:101B1000C40101964C01FA94FF2071F0C6010E94A5
+:101B2000B00D3C0197FD08C00E947208892B59F343
+:101B3000B601C3010E94EC0D8114910409F4AACFEF
+:101B4000F4011082A7CF0061D5CFFC0105900616E5
+:101B500021F00020D9F7C00108953197CF010895F1
+:101B6000CF93DF93EC012B8120FF1AC026FF0CC01E
+:101B70002F7B2B838E819F8101969F838E838A8109
+:101B800090E0DF91CF91089522FF18C0E881F9819C
+:101B90008081082E000C990B009729F420622B837A
+:101BA0008FEF9FEFEECF3196F983E8832E813F814F
+:101BB0002F5F3F4F3F832E839927E3CFEA85FB8535
+:101BC000099597FFF3CF2B81019621F080E2822BBC
+:101BD0008B83E6CF80E1FBCFFB01238120FF11C087
+:101BE00026FD0FC08F3F980771F082832F7D206400
+:101BF0002383268137812150310937832683992712
+:0C1C000008958FEF9FEF0895F894FFCF38
+:101C0C0020EE02EE023C00B4003C00FF0000FA01A2
+:101C1C008000000000008D04AD03DA03DA044B04ED
+:101C2C00E9033D04433A00433A25642C25642C25F2
+:0C1C3C00642C25642C25642C2564000019
+:00000001FF
+    `;
+
+    function flashSelectedArduino() {
+        if (typeof AvrgirlArduino === 'undefined') {
+            console.error("Errore: Impossibile caricare la libreria avrgirl-arduino.");
+            return; // Usciamo senza usare alert()!
+        }
+
+        const model = document.getElementById('arduino_model').value;
+        let hexData = "";
+        let boardName = "";
+
+        if (model === "leonardo") {
+            hexData = firmwareHexLeonardo;
+            boardName = "micro"; // AVRGirl riconosce l'ATmega32U4 come "micro"
+        } else if (model === "uno") {
+            hexData = firmwareHexUno;
+            boardName = "uno";
+        } else if (model === "nano_old") {
+            hexData = firmwareHexNanoOld;
+            // "nano" usa automaticamente 57600 di default su AVRGirl, è perfetto per l'Old Bootloader!
+            boardName = "nano"; 
+        }
+
+        if (!hexData || hexData.trim() === "") {
+            console.error("Errore: Codice HEX non inserito nello script.");
+            return;
+        }
+
+        // --- NESSUN POPUP ALERT O CONFIRM DA QUI IN POI ---
+        // Il browser vuole che chiamiamo l'USB nell'istante del click!
+
+        // Cambiamo il testo del bottone per dare feedback visivo
+        const btn = document.getElementById('btn-flash');
+        const originalText = btn.textContent;
+        btn.textContent = "⏳ Caricamento in corso...";
+        btn.style.backgroundColor = "#f39c12";
+
+        const avrgirl = new AvrgirlArduino({
+            board: boardName,
+            debug: true
+        });
+
+        avrgirl.flash(hexData, (error) => {
+            // Ripristiniamo il bottone alla fine dell'operazione
+            btn.textContent = originalText;
+            btn.style.backgroundColor = "#8e44ad";
+
+            if (error) {
+                console.error("Errore di configurazione:", error);
+                alert("Caricamento fallito.\n\nSe stai usando Leonardo/Micro, hai fatto il DOPPIO CLICK VELOCE sul bottoncino RESET prima di cliccare?");
+            } else {
+                alert("✅ Configurazione completata con successo!\n\nIl tuo Arduino è pronto. Ora puoi cliccare su 'Connetti USB'.");
+            }
+        });
+    }
+
+    function changeModelWarning() {
+        // Mostra il testo rosso di avviso per il doppio click sul Leonardo solo quando necessario
+        const model = document.getElementById('arduino_model').value;
+        const source = document.getElementById('v_input_source').value;
+        const warningDiv = document.getElementById('leonardo-warning');
+        
+        if (source === 'serial' && model === 'leonardo') {
+            warningDiv.style.display = 'block';
+        } else {
+            warningDiv.style.display = 'none';
+        }
+    }
+
+    // =======================================================
+    // 6. SERIALE ARDUINO E LOGICA CALCOLO TEMPI/WPM
+    // =======================================================
+        
+    async function connectSerial() {
+        let serialAPI = navigator.serial;
+        
+        if (!serialAPI) {
+            try {
+                const module = await import('https://unpkg.com/web-serial-polyfill');
+                serialAPI = module.serial;
+            } catch(e) {
+                console.error("Fallito caricamento polyfill", e);
+            }
+        }
+
+        if (!serialAPI) return alert("Browser o Sistema non supportato per USB.");
+
+        try {
+            port = await serialAPI.requestPort({
+                filters: [
+                    { usbVendorId: 0x2341 },
+                    { usbVendorId: 0x1B4F },
+                    { usbVendorId: 0x239A },
+                    { usbVendorId: 0x1A86 }
+                ]
+            });
+            
+            await port.open({ baudRate: 500000 });
+            await port.setSignals({ dataTerminalReady: true, requestToSend: true });
+            
+            const encoder = new TextEncoderStream();
+            encoder.readable.pipeTo(port.writable);
+            serialWriter = encoder.writable.getWriter();
+            
+            readSerialData();
+            sendParamsToArduino();
+            
+            document.getElementById('btn-serial').textContent = "✅ USB OK";
+            document.getElementById('btn-serial').style.backgroundColor = "#27ae60";
+        } catch (e) { 
+            console.error(e); 
+            alert("Nessuna porta selezionata. Assicurati di aver chiuso altre app seriali!");
+        }
+    }
+
+    async function sendParamsToArduino() {
+        if (!serialWriter) return;
+        const dot = document.getElementById('c_dot_ms').value;
+        const dash = document.getElementById('c_dash_ms').value;
+        const spc = document.getElementById('c_spc_ms').value;
+        const freq = document.getElementById('c_freq').value;
+        
+        const mode = document.getElementById('c_mode').value;
+        const m = (mode === 'Iambic' || mode === 'Manuale') ? 0 : 1;
+        
+        try { await serialWriter.write(`C:${dot},${dash},${spc},${freq},${freq},${m}\n`); } catch (e) {}
+    }
+
+    async function readSerialData() {
+        const reader = port.readable.getReader();
+        
+        while (true) {
+            const { value, done } = await reader.read(); 
+            if (done) {
+                reader.releaseLock();
+                break;
+            }
+            if (document.getElementById('v_input_source').value !== 'serial') continue;
+
+            for (let i = 0; i < value.length; i++) {
+                const byte = value[i];
+                
+                if (byte === 1 || byte === 49 || byte === 68) { 
+                    playTone(getFreq('dot'), true); 
+                } 
+                else if (byte === 2 || byte === 76) { 
+                    playTone(getFreq('dash'), true); 
+                } 
+                else if (byte === 0 || byte === 48) { 
+                    stopTone(true); 
+                }
+            }
+        }
+    }
+
+    // =======================================================
+    // 7. FUNZIONI INTERFACCIA E REATTIVITÀ WPM/MS
+    // =======================================================
+    function changeSource() {
+        const s = document.getElementById('v_input_source').value;
+        document.getElementById('area-auto').style.display = (s === 'auto') ? 'block' : 'none';
+        document.getElementById('area-manuale').style.display = (s === 'manual') ? 'block' : 'none';
+        
+        document.getElementById('arduino_model').style.display = (s === 'serial') ? 'inline-block' : 'none';
+        document.getElementById('btn-flash').style.display = (s === 'serial') ? 'inline-block' : 'none';
+        document.getElementById('btn-serial').style.display = (s === 'serial') ? 'inline-block' : 'none';
+        
+        changeModelWarning(); // Controlliamo se mostrare il messaggio per il Leonardo
+        
+        if (s !== 'auto') { textQueue.length = 0; }
+    }
+
+    function updateWPM() {
+        const mode = document.getElementById('c_mode').value;
+        const isManual = (mode === 'Manuale');
+        
+        document.getElementById('c_dot_ms').readOnly = !isManual;
+        document.getElementById('c_dash_ms').readOnly = !isManual;
+        document.getElementById('c_spc_ms').readOnly = !isManual;
+        
+        document.getElementById('c_wpm').readOnly = isManual;
+
+        if(!isManual) {
+            const wpm = parseInt(document.getElementById('c_wpm').value) || 20;
+            const dot = Math.round(1200 / wpm);
+            document.getElementById('c_dot_ms').value = dot;
+            document.getElementById('c_dash_ms').value = dot * 3;
+            document.getElementById('c_spc_ms').value = dot;
+            
+            if(document.getElementById('a_auto_env').checked) {
+                let env = Math.round(dot * 0.1);
+                if (wpm >= 30) env = 1; 
+                else if (wpm >= 20) env = 2;
+                else env = Math.max(2, Math.min(5, env));
+                
+                document.getElementById('a_attack').value = env;
+                document.getElementById('a_release').value = env;
+            }
+        } else {
+            updateFromMS();
+        }
+    }
+
+    function updateFromMS() {
+        const mode = document.getElementById('c_mode').value;
+        if(mode === 'Manuale') {
+            const dot = parseInt(document.getElementById('c_dot_ms').value) || 60;
+            const wpm = Math.round(1200 / dot);
+            document.getElementById('c_wpm').value = wpm; 
+            
+            if(document.getElementById('a_auto_env').checked) {
+                let env = Math.round(dot * 0.1);
+                if (wpm >= 30) env = 1; 
+                else if (wpm >= 20) env = 2;
+                else env = Math.max(2, Math.min(5, env));
+                
+                document.getElementById('a_attack').value = env;
+                document.getElementById('a_release').value = env;
+            }
+            sendParamsToArduino();
+        }
+    }
+
+    // Avvio Iniziale
+    window.onload = () => {
+        loadConfig();
+        initAudioOptimized();
+        updateLobbyPresence();
+    };
+</script>
+</body>
+</html>
