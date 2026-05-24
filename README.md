@@ -1,21 +1,22 @@
 # QSL Template Editor
 
-Editor HTML standalone per creare template QSL personalizzati, senza logger.
+Standalone HTML editor for creating custom QSL card templates, without the logger.
 
-Fork del modulo QSL editor di [Log Radio + QSL Live Editor Pro](https://tn6rg3.github.io/antennavr/log/log.html) di [TN6RG3](https://github.com/tn6rg3), estrapolato e reso indipendente.
+Fork of the QSL editor module from [Log Radio + QSL Live Editor Pro](https://tn6rg3.github.io/antennavr/log/log.html) by [TN6RG3](https://github.com/tn6rg3), extracted and made independent.
 
-## Caratteristiche
+## Features
 
-- Carica un'immagine di sfondo (foto o scatto)
-- Ritaglio con selezione area e trascinamento
-- Testi editabili e posizionabili liberamente sulla QSL
-- Controllo individuale per ogni testo: colore, font, dimensione, grassetto, corsivo, contorno (colore e spessore)
-- Barre in sovraimpressione TOP/BOT personalizzabili
-- Luminosità, contrasto e vignette
-- Logo personalizzato
-- Salva/carica template completo
-- Esporta in JPG o stampa (1949×1358 px)
+- Upload or take a photo as QSL background
+- Crop with selection handles and drag
+- Fully editable text fields: freely positionable on the image
+- Per-field text controls: color, font, size, bold, italic, outline (color & thickness)
+- TOP/BOT overlay bars with customizable color, height, opacity
+- Brightness, contrast, and edge vignette controls
+- Custom logo overlay
+- Save/load full templates (background + settings)
+- Export as JPG (1949×1358 px) — suitable for **POTA Experiences** and **MQC Award** sites
+- Print-ready format (151×105 mm)
 
-## Utilizzo
+## Usage
 
-Apri `QSL_Editor.html` in qualsiasi browser moderno. Nessun server necessario.
+Open `QSL_Editor.html` in any modern browser. No server required.
